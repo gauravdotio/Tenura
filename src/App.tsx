@@ -12,9 +12,9 @@ import { AddExpenseModal } from './components/AddExpenseModal';
 import { ExportImportModal } from './components/ExportImportModal';
 import type { Liability } from './types/finance';
 import { 
-  LayoutDashboard, 
-  LineChart, 
-  ReceiptText, 
+  Layers, 
+  BarChart3, 
+  Receipt, 
   ShieldCheck,
 } from 'lucide-react';
 
@@ -34,16 +34,16 @@ const DashboardContent: React.FC = () => {
       const element = document.getElementById(`schedule-${liabilityId}`);
       if (element) {
         element.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        element.classList.add('ring-2', 'ring-cyan-400', 'ring-offset-2', 'ring-offset-gray-950');
+        element.classList.add('ring-2', 'ring-cyan-500/50', 'ring-offset-2', 'ring-offset-[#080B11]');
         setTimeout(() => {
-          element.classList.remove('ring-2', 'ring-cyan-400', 'ring-offset-2', 'ring-offset-gray-950');
+          element.classList.remove('ring-2', 'ring-cyan-500/50', 'ring-offset-2', 'ring-offset-[#080B11]');
         }, 2000);
       }
     }, 100);
   };
 
   return (
-    <div className="min-h-screen bg-[#0B0F19] text-gray-100 flex flex-col font-sans selection:bg-indigo-500 selection:text-white">
+    <div className="min-h-screen bg-[#080B11] text-slate-100 flex flex-col font-sans selection:bg-indigo-500 selection:text-white">
       {/* Navigation Header */}
       <Header
         onOpenAddLiability={() => setIsAddLiabilityOpen(true)}
@@ -58,64 +58,62 @@ const DashboardContent: React.FC = () => {
         <MetricsOverview />
 
         {/* View Navigation Switcher */}
-        <div className="flex items-center justify-between border-b border-gray-800 pb-3 flex-wrap gap-3">
-          <div className="flex items-center gap-2 bg-gray-900/90 p-1 rounded-xl border border-gray-800 text-xs">
+        <div className="flex items-center justify-between border-b border-white/[0.06] pb-3 flex-wrap gap-3">
+          <div className="flex items-center gap-1.5 bg-[#0D111C]/90 p-1 rounded-xl border border-white/[0.06] text-xs">
             <button
               onClick={() => setActiveTab('dashboard')}
               className={`flex items-center gap-2 px-4 py-2 rounded-lg font-semibold transition-all ${
                 activeTab === 'dashboard'
-                  ? 'bg-gradient-to-r from-indigo-600 to-indigo-700 text-white shadow-md'
-                  : 'text-gray-400 hover:text-gray-200 hover:bg-gray-800/60'
+                  ? 'bg-indigo-600 text-white shadow-sm shadow-indigo-600/30'
+                  : 'text-slate-400 hover:text-slate-200 hover:bg-white/[0.04]'
               }`}
             >
-              <LayoutDashboard className="w-4 h-4" />
-              <span>Loans & EMI Schedules</span>
+              <Layers className="w-3.5 h-3.5" />
+              <span>Liabilities & Schedules</span>
             </button>
 
             <button
               onClick={() => setActiveTab('analytics')}
               className={`flex items-center gap-2 px-4 py-2 rounded-lg font-semibold transition-all ${
                 activeTab === 'analytics'
-                  ? 'bg-gradient-to-r from-indigo-600 to-indigo-700 text-white shadow-md'
-                  : 'text-gray-400 hover:text-gray-200 hover:bg-gray-800/60'
+                  ? 'bg-indigo-600 text-white shadow-sm shadow-indigo-600/30'
+                  : 'text-slate-400 hover:text-slate-200 hover:bg-white/[0.04]'
               }`}
             >
-              <LineChart className="w-4 h-4" />
-              <span>Analytics & Burndown</span>
+              <BarChart3 className="w-3.5 h-3.5" />
+              <span>Analytics & Forecasting</span>
             </button>
 
             <button
               onClick={() => setActiveTab('expenses')}
               className={`flex items-center gap-2 px-4 py-2 rounded-lg font-semibold transition-all ${
                 activeTab === 'expenses'
-                  ? 'bg-gradient-to-r from-indigo-600 to-indigo-700 text-white shadow-md'
-                  : 'text-gray-400 hover:text-gray-200 hover:bg-gray-800/60'
+                  ? 'bg-indigo-600 text-white shadow-sm shadow-indigo-600/30'
+                  : 'text-slate-400 hover:text-slate-200 hover:bg-white/[0.04]'
               }`}
             >
-              <ReceiptText className="w-4 h-4" />
+              <Receipt className="w-3.5 h-3.5" />
               <span>Daily Expenses</span>
             </button>
           </div>
 
-          <div className="flex items-center gap-2 text-xs text-gray-400">
-            <span className="flex items-center gap-1">
-              <ShieldCheck className="w-4 h-4 text-emerald-400" />
-              <span>Encrypted Local Storage</span>
+          <div className="flex items-center gap-2 text-xs text-slate-400">
+            <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white/[0.03] border border-white/[0.05]">
+              <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
+              <span>Local Offline-First Vault</span>
             </span>
           </div>
         </div>
 
         {/* Tab Views */}
         {activeTab === 'dashboard' && (
-          <div className="space-y-8 animate-fadeIn">
-            {/* 1. Master Loans & Credit Cards Table (Google Sheet Top Section) */}
+          <div className="space-y-7 animate-fadeIn">
             <LoansTable
               onOpenAddLiability={() => setIsAddLiabilityOpen(true)}
               onOpenConvertToEmi={(liab) => setSelectedLiabilityForEmi(liab)}
               onScrollToSchedule={scrollToSchedule}
             />
 
-            {/* 2. EMI Breakdown & Amortization Schedules (Google Sheet Bottom Section) */}
             <EMISchedulesGrid />
           </div>
         )}
@@ -135,13 +133,13 @@ const DashboardContent: React.FC = () => {
       </main>
 
       {/* Footer */}
-      <footer className="border-t border-gray-850 bg-gray-950/60 py-6 text-center text-xs text-gray-400">
+      <footer className="border-t border-white/[0.06] bg-[#090D16] py-5 text-center text-xs text-slate-400">
         <div className="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-2">
           <div className="flex items-center gap-2">
-            <div className="w-2 h-2 rounded-full bg-emerald-500"></div>
-            <span>Personal Loan & EMI Tracker • Pre-populated with your Google Sheet data</span>
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+            <span className="text-slate-400">Tenura — Sovereign Financial Control & Amortization Manager</span>
           </div>
-          <p className="text-gray-400">Data stored locally on your device in your active workspace</p>
+          <p className="text-slate-400 text-[11px]">All data remains 100% on-device in client storage</p>
         </div>
       </footer>
 

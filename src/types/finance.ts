@@ -4,8 +4,9 @@ export type LiabilityStatus = 'active' | 'converted_to_emi' | 'paid_off' | 'over
 export interface Profile {
   id: string;
   name: string;
-  avatar: string;
-  color: string;
+  initials: string;
+  role: string;
+  accentColor: string;
   monthlyBudget?: number;
 }
 

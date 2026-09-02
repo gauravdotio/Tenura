@@ -17,7 +17,7 @@ import { TrendingDown, PieChart as ChartIcon, BarChart3, Calendar } from 'lucide
 import { useFinance } from '../context/FinanceContext';
 import { formatINR } from '../utils/formatters';
 
-const BANK_COLORS = ['#6366F1', '#EC4899', '#06B6D4', '#10B981', '#F59E0B', '#8B5CF6', '#F43F5E'];
+const CHART_PALETTE = ['#6366F1', '#06B6D4', '#10B981', '#F59E0B', '#8B5CF6', '#EC4899', '#F43F5E'];
 
 export const AnalyticsSection: React.FC = () => {
   const { filteredLiabilities, filteredSchedules } = useFinance();
@@ -67,14 +67,14 @@ export const AnalyticsSection: React.FC = () => {
     value: l.amount || 0,
   })).filter(d => d.value > 0);
 
-  // Custom Dark Tooltip
+  // Custom Fintech Tooltip
   const CustomTooltip = ({ active, payload, label }: any) => {
     if (active && payload && payload.length) {
       return (
-        <div className="bg-gray-950/95 border border-gray-800 p-3 rounded-xl shadow-2xl backdrop-blur-md">
-          <p className="text-xs font-bold text-white mb-1">{label || payload[0].name}</p>
+        <div className="bg-[#090D16]/95 border border-white/[0.1] p-3 rounded-xl shadow-2xl backdrop-blur-xl">
+          <p className="text-xs font-semibold text-slate-200 mb-1">{label || payload[0].name}</p>
           {payload.map((entry: any, index: number) => (
-            <p key={`item-${index}`} className="text-xs font-mono-nums" style={{ color: entry.color || '#10B981' }}>
+            <p key={`item-${index}`} className="text-xs font-tabular font-medium" style={{ color: entry.color || '#10B981' }}>
               {entry.name}: {formatINR(entry.value)}
             </p>
           ))}
@@ -85,33 +85,31 @@ export const AnalyticsSection: React.FC = () => {
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-        <div>
-          <h3 className="text-lg font-bold text-white tracking-tight flex items-center gap-2">
-            <BarChart3 className="w-5 h-5 text-indigo-400" />
-            <span>Financial Analytics & Debt Payoff Projections</span>
-          </h3>
-          <p className="text-xs text-gray-400">
-            Visual breakdown of monthly cashflow requirements, bank liability shares, and burndown curve
-          </p>
-        </div>
+    <div className="space-y-5">
+      <div>
+        <h3 className="text-base font-bold text-white tracking-tight flex items-center gap-2">
+          <BarChart3 className="w-4 h-4 text-indigo-400" />
+          <span>Financial Analytics & Forecasting</span>
+        </h3>
+        <p className="text-xs text-slate-400 mt-0.5">
+          Visual projections of monthly cashflow requirements, instrument exposure, and debt burndown
+        </p>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
         
         {/* Chart 1: Monthly Cashflow Outflow Projection */}
-        <div className="lg:col-span-2 rounded-2xl bg-gray-900/80 border border-gray-800/90 p-5 shadow-xl flex flex-col justify-between">
+        <div className="lg:col-span-2 pro-card rounded-2xl p-5 shadow-xl flex flex-col justify-between">
           <div className="flex items-center justify-between mb-4">
             <div>
-              <h4 className="text-sm font-bold text-white flex items-center gap-2">
-                <Calendar className="w-4 h-4 text-cyan-400" />
+              <h4 className="text-sm font-semibold text-white flex items-center gap-2">
+                <Calendar className="w-3.5 h-3.5 text-cyan-400" />
                 <span>Monthly Cashflow Commitment (EMI Outflow)</span>
               </h4>
-              <p className="text-[11px] text-gray-400 mt-0.5">Projected monthly EMI obligation per month</p>
+              <p className="text-[11px] text-slate-400 mt-0.5">Projected monthly EMI obligations per billing cycle</p>
             </div>
-            <span className="text-[11px] text-cyan-400 font-mono font-medium px-2 py-0.5 bg-cyan-500/10 border border-cyan-500/20 rounded-md">
-              Next 12 Months
+            <span className="text-[10px] text-cyan-400 font-tabular font-semibold px-2 py-0.5 bg-cyan-500/10 border border-cyan-500/20 rounded-md">
+              12-Month Horizon
             </span>
           </div>
 
@@ -119,43 +117,43 @@ export const AnalyticsSection: React.FC = () => {
             {monthlyOutflowData.length > 0 ? (
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={monthlyOutflowData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#1F2937" vertical={false} />
+                  <CartesianGrid strokeDasharray="2 4" stroke="#1E293B" vertical={false} />
                   <XAxis 
                     dataKey="monthLabel" 
-                    stroke="#9CA3AF" 
+                    stroke="#64748B" 
                     fontSize={11} 
                     tickLine={false} 
-                    axisLine={{ stroke: '#374151' }}
+                    axisLine={{ stroke: '#334155' }}
                     tickFormatter={(val) => val.split(' ')[0]}
                   />
                   <YAxis 
-                    stroke="#9CA3AF" 
+                    stroke="#64748B" 
                     fontSize={11} 
                     tickLine={false} 
-                    axisLine={{ stroke: '#374151' }}
+                    axisLine={{ stroke: '#334155' }}
                     tickFormatter={(val) => `₹${val / 1000}k`}
                   />
                   <Tooltip content={<CustomTooltip />} />
-                  <Bar dataKey="totalDue" name="EMI Due" fill="#6366F1" radius={[6, 6, 0, 0]} />
-                  <Bar dataKey="totalPaid" name="Paid" fill="#10B981" radius={[6, 6, 0, 0]} />
+                  <Bar dataKey="totalDue" name="EMI Due" fill="#6366F1" radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="totalPaid" name="Paid" fill="#10B981" radius={[4, 4, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
             ) : (
-              <div className="h-full flex items-center justify-center text-xs text-gray-500">
-                No monthly schedule data available.
+              <div className="h-full flex items-center justify-center text-xs text-slate-500">
+                No active monthly schedules recorded.
               </div>
             )}
           </div>
         </div>
 
         {/* Chart 2: Debt Liability Distribution Donut */}
-        <div className="rounded-2xl bg-gray-900/80 border border-gray-800/90 p-5 shadow-xl flex flex-col justify-between">
+        <div className="pro-card rounded-2xl p-5 shadow-xl flex flex-col justify-between">
           <div className="mb-2">
-            <h4 className="text-sm font-bold text-white flex items-center gap-2">
-              <ChartIcon className="w-4 h-4 text-emerald-400" />
-              <span>Liability Share by Provider</span>
+            <h4 className="text-sm font-semibold text-white flex items-center gap-2">
+              <ChartIcon className="w-3.5 h-3.5 text-emerald-400" />
+              <span>Exposure by Instrument</span>
             </h4>
-            <p className="text-[11px] text-gray-400 mt-0.5">Distribution across credit cards and loans</p>
+            <p className="text-[11px] text-slate-400 mt-0.5">Proportional liability distribution</p>
           </div>
 
           <div className="h-56 w-full relative flex items-center justify-center">
@@ -168,63 +166,63 @@ export const AnalyticsSection: React.FC = () => {
                     cx="50%"
                     cy="50%"
                     innerRadius={55}
-                    outerRadius={80}
+                    outerRadius={78}
                     paddingAngle={3}
                     dataKey="value"
                   >
                     {providerData.map((_, index) => (
-                      <Cell key={`cell-${index}`} fill={BANK_COLORS[index % BANK_COLORS.length]} />
+                      <Cell key={`cell-${index}`} fill={CHART_PALETTE[index % CHART_PALETTE.length]} />
                     ))}
                   </Pie>
                 </RechartsPieChart>
               </ResponsiveContainer>
             ) : (
-              <div className="text-xs text-gray-500">No active liabilities.</div>
+              <div className="text-xs text-slate-500">No active liabilities recorded.</div>
             )}
           </div>
 
-          {/* Mini Legend */}
-          <div className="flex flex-wrap gap-2 pt-2 border-t border-gray-800">
+          {/* Legend */}
+          <div className="flex flex-wrap gap-2 pt-3 border-t border-white/[0.06]">
             {providerData.map((entry, index) => (
-              <div key={entry.name} className="flex items-center gap-1.5 text-[11px] text-gray-300">
+              <div key={entry.name} className="flex items-center gap-1.5 text-[11px] text-slate-300">
                 <span 
                   className="w-2 h-2 rounded-full" 
-                  style={{ backgroundColor: BANK_COLORS[index % BANK_COLORS.length] }}
+                  style={{ backgroundColor: CHART_PALETTE[index % CHART_PALETTE.length] }}
                 ></span>
-                <span className="truncate max-w-[100px]">{entry.name}</span>
+                <span className="truncate max-w-[110px]">{entry.name}</span>
               </div>
             ))}
           </div>
         </div>
 
-        {/* Chart 3: Debt Burndown Timeline Area Chart */}
-        <div className="lg:col-span-3 rounded-2xl bg-gray-900/80 border border-gray-800/90 p-5 shadow-xl">
+        {/* Chart 3: Debt Burndown Timeline */}
+        <div className="lg:col-span-3 pro-card rounded-2xl p-5 shadow-xl">
           <div className="flex items-center justify-between mb-4">
             <div>
-              <h4 className="text-sm font-bold text-white flex items-center gap-2">
-                <TrendingDown className="w-4 h-4 text-emerald-400" />
-                <span>Projected Debt Burndown (Path to ₹0)</span>
+              <h4 className="text-sm font-semibold text-white flex items-center gap-2">
+                <TrendingDown className="w-3.5 h-3.5 text-emerald-400" />
+                <span>Projected Debt Burndown Curve</span>
               </h4>
-              <p className="text-[11px] text-gray-400 mt-0.5">
-                Estimated balance reduction as monthly EMI installments are completed
+              <p className="text-[11px] text-slate-400 mt-0.5">
+                Estimated balance amortization as scheduled installments are settled
               </p>
             </div>
           </div>
 
-          <div className="h-48 w-full">
+          <div className="h-44 w-full">
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={burndownData} margin={{ top: 10, right: 10, left: -15, bottom: 0 }}>
                 <defs>
-                  <linearGradient id="burndownGradient" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#10B981" stopOpacity={0.4}/>
+                  <linearGradient id="proBurndownGradient" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#10B981" stopOpacity={0.35}/>
                     <stop offset="95%" stopColor="#10B981" stopOpacity={0}/>
                   </linearGradient>
                 </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="#1F2937" vertical={false} />
-                <XAxis dataKey="label" stroke="#9CA3AF" fontSize={11} tickLine={false} axisLine={{ stroke: '#374151' }} />
-                <YAxis stroke="#9CA3AF" fontSize={11} tickLine={false} axisLine={{ stroke: '#374151' }} tickFormatter={(val) => `₹${val / 1000}k`} />
+                <CartesianGrid strokeDasharray="2 4" stroke="#1E293B" vertical={false} />
+                <XAxis dataKey="label" stroke="#64748B" fontSize={11} tickLine={false} axisLine={{ stroke: '#334155' }} />
+                <YAxis stroke="#64748B" fontSize={11} tickLine={false} axisLine={{ stroke: '#334155' }} tickFormatter={(val) => `₹${val / 1000}k`} />
                 <Tooltip content={<CustomTooltip />} />
-                <Area type="monotone" dataKey="balance" name="Remaining Debt" stroke="#10B981" strokeWidth={2} fillOpacity={1} fill="url(#burndownGradient)" />
+                <Area type="monotone" dataKey="balance" name="Remaining Balance" stroke="#10B981" strokeWidth={2} fillOpacity={1} fill="url(#proBurndownGradient)" />
               </AreaChart>
             </ResponsiveContainer>
           </div>

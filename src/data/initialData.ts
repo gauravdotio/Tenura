@@ -4,15 +4,17 @@ export const initialProfiles: Profile[] = [
   {
     id: 'gaurav',
     name: 'Gaurav',
-    avatar: '👨‍💻',
-    color: '#6366F1',
+    initials: 'GR',
+    role: 'Primary Account',
+    accentColor: '#6366F1',
     monthlyBudget: 75000,
   },
   {
     id: 'didi',
     name: 'Didi',
-    avatar: '👩‍💼',
-    color: '#EC4899',
+    initials: 'DR',
+    role: 'Secondary Account',
+    accentColor: '#06B6D4',
     monthlyBudget: 60000,
   }
 ];
@@ -21,7 +23,7 @@ export const initialLiabilities: Liability[] = [
   {
     id: 'liab-1',
     profileId: 'gaurav',
-    providerName: 'Indus Bank CC',
+    providerName: 'IndusInd Bank CC',
     type: 'credit_card',
     amount: 30000,
     status: 'active',
@@ -31,7 +33,7 @@ export const initialLiabilities: Liability[] = [
   {
     id: 'liab-2',
     profileId: 'gaurav',
-    providerName: 'SBI Bank CC',
+    providerName: 'SBI Card',
     type: 'credit_card',
     amount: 26000,
     status: 'active',
@@ -41,7 +43,7 @@ export const initialLiabilities: Liability[] = [
   {
     id: 'liab-3',
     profileId: 'gaurav',
-    providerName: 'IDFC Bank CC',
+    providerName: 'IDFC FIRST Bank CC',
     type: 'credit_card',
     amount: 25000,
     status: 'converted_to_emi',
@@ -65,7 +67,7 @@ export const initialLiabilities: Liability[] = [
   {
     id: 'liab-5',
     profileId: 'gaurav',
-    providerName: 'AC EMI',
+    providerName: 'AC Consumer EMI',
     type: 'emi',
     amount: 27972,
     status: 'active',
@@ -76,7 +78,7 @@ export const initialLiabilities: Liability[] = [
     hasSchedule: true,
     notes: '1.5 Ton Inverter AC purchase',
   },
-  // Didi's sample profile liabilities
+  // Didi's profile liabilities
   {
     id: 'liab-d1',
     profileId: 'didi',
@@ -90,7 +92,7 @@ export const initialLiabilities: Liability[] = [
   {
     id: 'liab-d2',
     profileId: 'didi',
-    providerName: 'Laptop EMI (Apple)',
+    providerName: 'MacBook Air EMI',
     type: 'emi',
     amount: 54000,
     status: 'active',
@@ -106,7 +108,7 @@ export const initialLiabilities: Liability[] = [
 export const initialSchedules: EMISchedule[] = [
   {
     liabilityId: 'liab-5', // AC EMI
-    title: 'AC EMI',
+    title: 'AC Consumer EMI',
     profileId: 'gaurav',
     originalAmount: 27972,
     monthlyEmi: 2331,
@@ -128,7 +130,7 @@ export const initialSchedules: EMISchedule[] = [
   },
   {
     liabilityId: 'liab-3', // IDFC CC EMI
-    title: 'IDFC CC EMI',
+    title: 'IDFC FIRST Bank CC EMI',
     profileId: 'gaurav',
     originalAmount: 25920,
     monthlyEmi: 2880,
@@ -147,7 +149,7 @@ export const initialSchedules: EMISchedule[] = [
   },
   {
     liabilityId: 'liab-d2',
-    title: 'Laptop EMI (Apple)',
+    title: 'MacBook Air EMI',
     profileId: 'didi',
     originalAmount: 54000,
     monthlyEmi: 9000,
@@ -167,7 +169,7 @@ export const initialExpenses: ExpenseItem[] = [
   {
     id: 'exp-1',
     profileId: 'gaurav',
-    title: 'Electricity Bill',
+    title: 'Electricity & Power Utilities',
     amount: 3200,
     category: 'utilities',
     date: '2026-08-28',
@@ -177,7 +179,7 @@ export const initialExpenses: ExpenseItem[] = [
   {
     id: 'exp-2',
     profileId: 'gaurav',
-    title: 'Supermarket Groceries',
+    title: 'Essential Groceries & Supplies',
     amount: 4500,
     category: 'food_groceries',
     date: '2026-08-30',
@@ -186,7 +188,7 @@ export const initialExpenses: ExpenseItem[] = [
   {
     id: 'exp-3',
     profileId: 'gaurav',
-    title: 'Broadband Fiber Internet',
+    title: 'Fiber Internet Subscription',
     amount: 999,
     category: 'utilities',
     date: '2026-09-01',
@@ -196,7 +198,7 @@ export const initialExpenses: ExpenseItem[] = [
   {
     id: 'exp-4',
     profileId: 'gaurav',
-    title: 'Fuel refill (Shell)',
+    title: 'Automotive Fuel Expense',
     amount: 2500,
     category: 'transport',
     date: '2026-09-01',
