@@ -2,6 +2,7 @@ import React, { useState, useCallback } from 'react';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { FinanceProvider, useFinance } from './context/FinanceContext';
 import { LoginPage } from './components/LoginPage';
+import { LandingPage } from './components/LandingPage';
 import { Header } from './components/Header';
 import { MetricsOverview } from './components/MetricsOverview';
 import { LoansTable } from './components/LoansTable';
@@ -268,6 +269,7 @@ const DashboardContent: React.FC = () => {
 
 const AppRoot: React.FC = () => {
   const { currentUser, isLoading } = useAuth();
+  const [unauthView, setUnauthView] = useState<'landing' | 'signin' | 'signup'>('landing');
 
   if (isLoading) {
     return (
@@ -281,7 +283,20 @@ const AppRoot: React.FC = () => {
   }
 
   if (!currentUser) {
-    return <LoginPage />;
+    if (unauthView === 'landing') {
+      return (
+        <LandingPage 
+          onGetStarted={() => setUnauthView('signup')} 
+          onSignIn={() => setUnauthView('signin')} 
+        />
+      );
+    }
+    return (
+      <LoginPage 
+        initialMode={unauthView === 'signup' ? 'signup' : 'signin'} 
+        onBackToLanding={() => setUnauthView('landing')} 
+      />
+    );
   }
 
   return (

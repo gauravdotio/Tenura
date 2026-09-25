@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { 
   ArrowRight, 
+  ArrowLeft,
   AlertCircle,
   CheckCircle2,
   KeyRound,
@@ -10,10 +11,18 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
-export const LoginPage: React.FC = () => {
+interface LoginPageProps {
+  initialMode?: 'signin' | 'signup';
+  onBackToLanding?: () => void;
+}
+
+export const LoginPage: React.FC<LoginPageProps> = ({ 
+  initialMode = 'signin',
+  onBackToLanding 
+}) => {
   const { users, login, register } = useAuth();
   
-  const [mode, setMode] = useState<'signin' | 'signup'>('signin');
+  const [mode, setMode] = useState<'signin' | 'signup'>(initialMode);
   const [showPassword, setShowPassword] = useState(false);
   
   // Default to Gaurav Rawat
@@ -81,6 +90,18 @@ export const LoginPage: React.FC = () => {
 
       <div className="w-full max-w-[400px] relative z-10 space-y-5">
         
+        {onBackToLanding && (
+          <div className="flex items-center justify-start">
+            <button
+              onClick={onBackToLanding}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.06] text-xs font-medium text-slate-300 hover:text-white transition-all group"
+            >
+              <ArrowLeft className="w-3.5 h-3.5 group-hover:-translate-x-0.5 transition-transform text-slate-400 group-hover:text-blue-400" />
+              <span>← Back to Overview</span>
+            </button>
+          </div>
+        )}
+
         {/* Brand Header */}
         <div className="text-center space-y-2">
           <div className="inline-flex items-center justify-center w-12 h-12 rounded-2xl bg-gradient-to-br from-blue-500 via-indigo-600 to-emerald-500 p-[1px] shadow-xl shadow-blue-500/20 mb-1">
