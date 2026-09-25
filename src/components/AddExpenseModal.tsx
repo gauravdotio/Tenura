@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { X, Receipt } from 'lucide-react';
 import { useFinance } from '../context/FinanceContext';
 import type { ExpenseCategory } from '../types/finance';
@@ -9,6 +9,23 @@ interface AddExpenseModalProps {
 }
 
 export const AddExpenseModal: React.FC<AddExpenseModalProps> = ({ isOpen, onClose }) => {
+  const { selectedProfileId } = useFinance();
+
+  if (!isOpen) return null;
+
+  return (
+    <AddExpenseModalContent 
+      key={`add-exp-${selectedProfileId}`} 
+      onClose={onClose} 
+    />
+  );
+};
+
+interface AddExpenseModalContentProps {
+  onClose: () => void;
+}
+
+const AddExpenseModalContent: React.FC<AddExpenseModalContentProps> = ({ onClose }) => {
   const { addExpense, profiles, selectedProfileId } = useFinance();
 
   const [profileId, setProfileId] = useState<string>(
@@ -21,7 +38,13 @@ export const AddExpenseModal: React.FC<AddExpenseModalProps> = ({ isOpen, onClos
   const [paymentMethod, setPaymentMethod] = useState<string>('UPI');
   const [isRecurring, setIsRecurring] = useState<boolean>(false);
 
-  if (!isOpen) return null;
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [onClose]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -38,22 +61,25 @@ export const AddExpenseModal: React.FC<AddExpenseModalProps> = ({ isOpen, onClos
     });
 
     onClose();
-    setTitle('');
-    setAmount('');
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fadeIn">
-      <div className="w-full max-w-md rounded-2xl bg-[#0E121E] border border-white/[0.09] shadow-2xl overflow-hidden">
+    <div 
+      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-sm animate-fadeIn"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+    >
+      <div className="w-full max-w-md rounded-2xl bg-[#0E121E] border border-white/[0.09] shadow-2xl overflow-hidden animate-modalIn">
         {/* Header */}
-        <div className="p-5 border-b border-white/[0.06] bg-[#090D16] flex items-center justify-between">
+        <div className="p-4 sm:p-5 border-b border-white/[0.06] bg-[#090D16] flex items-center justify-between">
           <div className="flex items-center gap-2.5">
             <div className="w-8 h-8 rounded-xl bg-cyan-500/10 border border-cyan-500/20 text-cyan-400 flex items-center justify-center">
               <Receipt className="w-4 h-4" />
             </div>
             <div>
               <h3 className="text-sm font-bold text-white">Log Operational Expense</h3>
-              <p className="text-[11px] text-slate-400">Record a one-off or recurring transaction</p>
+              <p className="text-[10px] sm:text-[11px] text-slate-400">Record a one-off or recurring transaction</p>
             </div>
           </div>
           <button 
@@ -65,11 +91,11 @@ export const AddExpenseModal: React.FC<AddExpenseModalProps> = ({ isOpen, onClos
         </div>
 
         {/* Form */}
-        <form onSubmit={handleSubmit} className="p-5 space-y-4">
+        <form onSubmit={handleSubmit} className="p-4 sm:p-5 space-y-3.5 sm:space-y-4 max-h-[82vh] overflow-y-auto smooth-scroll">
           
           {/* Target Profile */}
           <div>
-            <label className="block text-[11px] font-semibold text-slate-300 uppercase tracking-wider mb-1.5">
+            <label className="block text-[10px] sm:text-[11px] font-semibold text-slate-300 uppercase tracking-wider mb-1.5">
               Account / Member
             </label>
             <div className="grid grid-cols-2 gap-2">
@@ -93,7 +119,7 @@ export const AddExpenseModal: React.FC<AddExpenseModalProps> = ({ isOpen, onClos
 
           {/* Title */}
           <div>
-            <label className="block text-[11px] font-semibold text-slate-300 uppercase tracking-wider mb-1.5">
+            <label className="block text-[10px] sm:text-[11px] font-semibold text-slate-300 uppercase tracking-wider mb-1.5">
               Expense Item Description *
             </label>
             <input
@@ -107,9 +133,9 @@ export const AddExpenseModal: React.FC<AddExpenseModalProps> = ({ isOpen, onClos
           </div>
 
           {/* Amount & Date */}
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
-              <label className="block text-[11px] font-semibold text-slate-300 uppercase tracking-wider mb-1.5">
+              <label className="block text-[10px] sm:text-[11px] font-semibold text-slate-300 uppercase tracking-wider mb-1.5">
                 Amount (₹) *
               </label>
               <input
@@ -124,7 +150,7 @@ export const AddExpenseModal: React.FC<AddExpenseModalProps> = ({ isOpen, onClos
             </div>
 
             <div>
-              <label className="block text-[11px] font-semibold text-slate-300 uppercase tracking-wider mb-1.5">
+              <label className="block text-[10px] sm:text-[11px] font-semibold text-slate-300 uppercase tracking-wider mb-1.5">
                 Date
               </label>
               <input
@@ -139,7 +165,7 @@ export const AddExpenseModal: React.FC<AddExpenseModalProps> = ({ isOpen, onClos
 
           {/* Category */}
           <div>
-            <label className="block text-[11px] font-semibold text-slate-300 uppercase tracking-wider mb-1.5">
+            <label className="block text-[10px] sm:text-[11px] font-semibold text-slate-300 uppercase tracking-wider mb-1.5">
               Expense Category
             </label>
             <select
@@ -159,9 +185,9 @@ export const AddExpenseModal: React.FC<AddExpenseModalProps> = ({ isOpen, onClos
           </div>
 
           {/* Payment Method */}
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
-              <label className="block text-[11px] font-semibold text-slate-300 uppercase tracking-wider mb-1.5">
+              <label className="block text-[10px] sm:text-[11px] font-semibold text-slate-300 uppercase tracking-wider mb-1.5">
                 Payment Channel
               </label>
               <select
@@ -170,14 +196,14 @@ export const AddExpenseModal: React.FC<AddExpenseModalProps> = ({ isOpen, onClos
                 className="pro-input w-full px-3.5 py-2 rounded-xl text-xs"
               >
                 <option value="UPI">UPI (Instant Transfer)</option>
-                <option value="Credit Card">Corporate / Personal Credit Card</option>
+                <option value="Credit Card">Credit Card</option>
                 <option value="Debit Card">Debit Card</option>
-                <option value="Net Banking">Net Banking / Wire</option>
+                <option value="Net Banking">Net Banking</option>
                 <option value="Cash">Cash Ledger</option>
               </select>
             </div>
 
-            <div className="flex items-center pt-5">
+            <div className="flex items-center pt-2 sm:pt-5">
               <label className="flex items-center gap-2 cursor-pointer">
                 <input
                   type="checkbox"
@@ -201,7 +227,7 @@ export const AddExpenseModal: React.FC<AddExpenseModalProps> = ({ isOpen, onClos
             </button>
             <button
               type="submit"
-              className="px-5 py-2 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-semibold shadow-sm shadow-cyan-600/20 transition-all"
+              className="px-5 py-2 rounded-xl bg-cyan-600 hover:bg-cyan-500 active:bg-cyan-700 text-white text-xs font-semibold shadow-sm shadow-cyan-600/20 transition-all"
             >
               Save Expense
             </button>

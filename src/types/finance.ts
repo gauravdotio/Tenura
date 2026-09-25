@@ -74,12 +74,29 @@ export interface ExpenseItem {
   notes?: string;
 }
 
+// Extensible for future LIC & Life Insurance policies
+export interface InsurancePolicy {
+  id: string;
+  profileId: string;
+  providerName: string; // e.g. 'LIC', 'HDFC Life', 'SBI Life'
+  policyName: string;   // e.g. 'LIC Jeevan Labh', 'Term Insurance'
+  policyNumber?: string;
+  premiumAmount: number;
+  premiumFrequency: 'monthly' | 'quarterly' | 'half_yearly' | 'yearly';
+  sumAssured: number;
+  maturityDate?: string;
+  nextPremiumDate?: string;
+  status: 'active' | 'lapsed' | 'matured';
+  notes?: string;
+}
+
 export interface DashboardSummary {
-  totalLiabilitiesAmount: number;
-  totalMonthlyEmi: number;
-  totalEmiLeft: number;
-  activeEmiCount: number;
-  creditCardDebt: number;
-  loansCount: number;
-  paidOffCount: number;
+  totalLiabilitiesAmount: number; // Red: Total active debt
+  totalMonthlyEmi: number;        // Blue: Active monthly EMI commitments
+  totalEmiLeft: number;           // Remaining to be paid on EMIs
+  activeEmiCount: number;         // Count of active EMI schedules
+  creditCardDebt: number;         // Red: Revolving credit cards
+  loansCount: number;             // Count of active loan instruments
+  paidOffCount: number;           // Fully settled records
+  totalWealthCleared: number;     // Green: Cleared wealth & debt settled
 }

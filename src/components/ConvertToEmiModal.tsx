@@ -11,20 +11,44 @@ interface ConvertToEmiModalProps {
 }
 
 export const ConvertToEmiModal: React.FC<ConvertToEmiModalProps> = ({ isOpen, onClose, liability }) => {
+  if (!isOpen || !liability) return null;
+
+  return (
+    <ConvertToEmiModalContent 
+      key={liability.id} 
+      liability={liability} 
+      onClose={onClose} 
+    />
+  );
+};
+
+interface ConvertToEmiModalContentProps {
+  liability: Liability;
+  onClose: () => void;
+}
+
+const ConvertToEmiModalContent: React.FC<ConvertToEmiModalContentProps> = ({ liability, onClose }) => {
   const { convertToEmi } = useFinance();
 
   const [tenure, setTenure] = useState<number>(9);
-  const [emiAmount, setEmiAmount] = useState<string>('');
+  const [emiAmount, setEmiAmount] = useState<string>(() => {
+    return Math.round(liability.amount / 9).toString();
+  });
   const [startMonth, setStartMonth] = useState<string>('2026-10');
 
   useEffect(() => {
-    if (liability) {
-      const defaultEmi = Math.round(liability.amount / (tenure || 9));
-      setEmiAmount(defaultEmi.toString());
-    }
-  }, [liability, tenure]);
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [onClose]);
 
-  if (!isOpen || !liability) return null;
+  const handleSelectTenure = (t: number) => {
+    setTenure(t);
+    const newEmi = Math.round(liability.amount / t);
+    setEmiAmount(newEmi.toString());
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -38,17 +62,22 @@ export const ConvertToEmiModal: React.FC<ConvertToEmiModalProps> = ({ isOpen, on
   const totalCalculated = (parseFloat(emiAmount) || 0) * tenure;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fadeIn">
-      <div className="w-full max-w-md rounded-2xl bg-[#0E121E] border border-white/[0.09] shadow-2xl overflow-hidden">
+    <div 
+      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-sm animate-fadeIn"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+    >
+      <div className="w-full max-w-md rounded-2xl bg-[#0E121E] border border-white/[0.09] shadow-2xl overflow-hidden animate-modalIn">
         {/* Header */}
-        <div className="p-5 border-b border-white/[0.06] bg-[#090D16] flex items-center justify-between">
+        <div className="p-4 sm:p-5 border-b border-white/[0.06] bg-[#090D16] flex items-center justify-between">
           <div className="flex items-center gap-2.5">
             <div className="w-8 h-8 rounded-xl bg-cyan-500/10 border border-cyan-500/20 text-cyan-400 flex items-center justify-center">
               <RefreshCw className="w-4 h-4" />
             </div>
             <div>
               <h3 className="text-sm font-bold text-white">Convert to Installment Plan</h3>
-              <p className="text-[11px] text-slate-400">{liability.providerName} (Bal: {formatINR(liability.amount)})</p>
+              <p className="text-[10px] sm:text-[11px] text-slate-400">{liability.providerName} (Bal: {formatINR(liability.amount)})</p>
             </div>
           </div>
           <button 
@@ -60,8 +89,8 @@ export const ConvertToEmiModal: React.FC<ConvertToEmiModalProps> = ({ isOpen, on
         </div>
 
         {/* Form */}
-        <form onSubmit={handleSubmit} className="p-5 space-y-4">
-          <div className="p-3.5 rounded-xl bg-[#080B11] border border-white/[0.06] text-xs text-slate-300 space-y-1.5">
+        <form onSubmit={handleSubmit} className="p-4 sm:p-5 space-y-3.5 sm:space-y-4 max-h-[82vh] overflow-y-auto smooth-scroll">
+          <div className="p-3 sm:p-3.5 rounded-xl bg-[#080B11] border border-white/[0.06] text-xs text-slate-300 space-y-1.5">
             <div className="flex justify-between">
               <span className="text-slate-400">Current Outstanding Balance:</span>
               <span className="font-bold font-tabular text-white">{formatINR(liability.amount)}</span>
@@ -74,7 +103,7 @@ export const ConvertToEmiModal: React.FC<ConvertToEmiModalProps> = ({ isOpen, on
 
           {/* Quick Tenure Selection */}
           <div>
-            <label className="block text-[11px] font-semibold text-slate-300 uppercase tracking-wider mb-1.5">
+            <label className="block text-[10px] sm:text-[11px] font-semibold text-slate-300 uppercase tracking-wider mb-1.5">
               Tenure Selection
             </label>
             <div className="grid grid-cols-4 gap-2">
@@ -82,7 +111,7 @@ export const ConvertToEmiModal: React.FC<ConvertToEmiModalProps> = ({ isOpen, on
                 <button
                   type="button"
                   key={m}
-                  onClick={() => setTenure(m)}
+                  onClick={() => handleSelectTenure(m)}
                   className={`py-2 rounded-xl border text-xs font-semibold font-tabular transition-all ${
                     tenure === m 
                       ? 'bg-cyan-600/20 border-cyan-500/50 text-cyan-300' 
@@ -98,7 +127,7 @@ export const ConvertToEmiModal: React.FC<ConvertToEmiModalProps> = ({ isOpen, on
           {/* Monthly EMI & Custom Tenure */}
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-[11px] font-semibold text-slate-300 uppercase tracking-wider mb-1.5">
+              <label className="block text-[10px] sm:text-[11px] font-semibold text-slate-300 uppercase tracking-wider mb-1.5">
                 Monthly EMI (₹) *
               </label>
               <input
@@ -113,7 +142,7 @@ export const ConvertToEmiModal: React.FC<ConvertToEmiModalProps> = ({ isOpen, on
             </div>
 
             <div>
-              <label className="block text-[11px] font-semibold text-slate-300 uppercase tracking-wider mb-1.5">
+              <label className="block text-[10px] sm:text-[11px] font-semibold text-slate-300 uppercase tracking-wider mb-1.5">
                 Start Month *
               </label>
               <input
@@ -136,7 +165,7 @@ export const ConvertToEmiModal: React.FC<ConvertToEmiModalProps> = ({ isOpen, on
             </button>
             <button
               type="submit"
-              className="px-5 py-2 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-semibold shadow-sm shadow-cyan-600/20 transition-all"
+              className="px-5 py-2 rounded-xl bg-cyan-600 hover:bg-cyan-500 active:bg-cyan-700 text-white text-xs font-semibold shadow-sm shadow-cyan-600/20 transition-all"
             >
               Generate Amortization
             </button>
