@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { FinanceProvider, useFinance } from './context/FinanceContext';
 import { LoginPage } from './components/LoginPage';
@@ -27,7 +27,7 @@ import {
   Plus
 } from 'lucide-react';
 
-const DashboardContent: React.FC = () => {
+const DashboardContent: React.FC<{ onViewLanding?: () => void }> = ({ onViewLanding }) => {
   const { filteredLiabilities, loadDemoData } = useFinance();
   const { currentUser } = useAuth();
 
@@ -64,6 +64,7 @@ const DashboardContent: React.FC = () => {
         onOpenAddLiability={() => setIsAddLiabilityOpen(true)}
         onOpenAddExpense={() => setIsAddExpenseOpen(true)}
         onOpenExportImport={() => setIsExportImportOpen(true)}
+        onViewLanding={onViewLanding}
       />
 
       {/* Main Container */}
@@ -270,6 +271,19 @@ const DashboardContent: React.FC = () => {
 const AppRoot: React.FC = () => {
   const { currentUser, isLoading } = useAuth();
   const [unauthView, setUnauthView] = useState<'landing' | 'signin' | 'signup'>('landing');
+  const [showLandingExplicit, setShowLandingExplicit] = useState<boolean>(() => {
+    return window.location.hash === '#landing' || window.location.search.includes('landing');
+  });
+
+  useEffect(() => {
+    const handleHash = () => {
+      if (window.location.hash === '#landing' || window.location.search.includes('landing')) {
+        setShowLandingExplicit(true);
+      }
+    };
+    window.addEventListener('hashchange', handleHash);
+    return () => window.removeEventListener('hashchange', handleHash);
+  }, []);
 
   if (isLoading) {
     return (
@@ -282,10 +296,34 @@ const AppRoot: React.FC = () => {
     );
   }
 
+  // Explicit Landing Page view (e.g. clicked "Landing Page" from header or visited #landing)
+  if (showLandingExplicit) {
+    return (
+      <LandingPage
+        currentUser={currentUser}
+        onOpenDashboard={() => {
+          setShowLandingExplicit(false);
+          if (window.location.hash === '#landing') {
+            window.history.pushState(null, '', window.location.pathname);
+          }
+        }}
+        onGetStarted={() => {
+          setShowLandingExplicit(false);
+          setUnauthView('signup');
+        }}
+        onSignIn={() => {
+          setShowLandingExplicit(false);
+          setUnauthView('signin');
+        }}
+      />
+    );
+  }
+
   if (!currentUser) {
     if (unauthView === 'landing') {
       return (
         <LandingPage 
+          currentUser={null}
           onGetStarted={() => setUnauthView('signup')} 
           onSignIn={() => setUnauthView('signin')} 
         />
@@ -301,7 +339,7 @@ const AppRoot: React.FC = () => {
 
   return (
     <FinanceProvider>
-      <DashboardContent />
+      <DashboardContent onViewLanding={() => setShowLandingExplicit(true)} />
     </FinanceProvider>
   );
 };

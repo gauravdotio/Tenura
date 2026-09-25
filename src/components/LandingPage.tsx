@@ -22,9 +22,16 @@ import { formatINR } from '../utils/formatters';
 interface LandingPageProps {
   onGetStarted: () => void;
   onSignIn: () => void;
+  currentUser?: { name: string } | null;
+  onOpenDashboard?: () => void;
 }
 
-export const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted, onSignIn }) => {
+export const LandingPage: React.FC<LandingPageProps> = ({ 
+  onGetStarted, 
+  onSignIn,
+  currentUser,
+  onOpenDashboard
+}) => {
   // Interactive Hero Calculator State
   const [calcAmount, setCalcAmount] = useState<number>(150000);
   const [calcTenure, setCalcTenure] = useState<number>(24);
@@ -110,19 +117,31 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted, onSignIn
 
           {/* Action CTAs */}
           <div className="flex items-center gap-2.5 sm:gap-3">
-            <button
-              onClick={onSignIn}
-              className="px-3.5 sm:px-4 py-2 rounded-xl text-xs font-semibold text-slate-300 hover:text-white hover:bg-white/[0.06] transition-all"
-            >
-              Sign In
-            </button>
-            <button
-              onClick={onGetStarted}
-              className="px-4 sm:px-5 py-2 sm:py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 active:bg-blue-700 text-white text-xs font-semibold shadow-lg shadow-blue-600/30 flex items-center gap-1.5 transition-all active:scale-95"
-            >
-              <span>Get Started</span>
-              <ArrowRight className="w-3.5 h-3.5" />
-            </button>
+            {currentUser ? (
+              <button
+                onClick={onOpenDashboard}
+                className="px-4 sm:px-5 py-2 sm:py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 active:bg-blue-700 text-white text-xs font-semibold shadow-lg shadow-blue-600/30 flex items-center gap-2 transition-all active:scale-95"
+              >
+                <span>Open Vault ({currentUser.name})</span>
+                <ArrowRight className="w-3.5 h-3.5" />
+              </button>
+            ) : (
+              <>
+                <button
+                  onClick={onSignIn}
+                  className="px-3.5 sm:px-4 py-2 rounded-xl text-xs font-semibold text-slate-300 hover:text-white hover:bg-white/[0.06] transition-all"
+                >
+                  Sign In
+                </button>
+                <button
+                  onClick={onGetStarted}
+                  className="px-4 sm:px-5 py-2 sm:py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 active:bg-blue-700 text-white text-xs font-semibold shadow-lg shadow-blue-600/30 flex items-center gap-1.5 transition-all active:scale-95"
+                >
+                  <span>Get Started</span>
+                  <ArrowRight className="w-3.5 h-3.5" />
+                </button>
+              </>
+            )}
           </div>
         </div>
       </header>
@@ -151,20 +170,32 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted, onSignIn
 
           {/* Action Buttons */}
           <div className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-4">
-            <button
-              onClick={onGetStarted}
-              className="w-full sm:w-auto px-7 py-3.5 rounded-xl bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-600 hover:from-blue-500 hover:to-indigo-500 text-white font-semibold text-sm shadow-xl shadow-blue-600/30 flex items-center justify-center gap-2 transition-all active:scale-95 border border-blue-400/30"
-            >
-              <span>Launch Your Ledger Free</span>
-              <ArrowRight className="w-4 h-4" />
-            </button>
-            <button
-              onClick={onSignIn}
-              className="w-full sm:w-auto px-6 py-3.5 rounded-xl bg-slate-900/90 hover:bg-slate-800 text-slate-200 hover:text-white font-semibold text-sm border border-white/[0.09] flex items-center justify-center gap-2 transition-all"
-            >
-              <KeyRound className="w-4 h-4 text-slate-400" />
-              <span>Sign In to Vault</span>
-            </button>
+            {currentUser ? (
+              <button
+                onClick={onOpenDashboard}
+                className="w-full sm:w-auto px-7 py-3.5 rounded-xl bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-600 hover:from-blue-500 hover:to-indigo-500 text-white font-semibold text-sm shadow-xl shadow-blue-600/30 flex items-center justify-center gap-2 transition-all active:scale-95 border border-blue-400/30"
+              >
+                <span>Return to Your Ledger ({currentUser.name})</span>
+                <ArrowRight className="w-4 h-4" />
+              </button>
+            ) : (
+              <>
+                <button
+                  onClick={onGetStarted}
+                  className="w-full sm:w-auto px-7 py-3.5 rounded-xl bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-600 hover:from-blue-500 hover:to-indigo-500 text-white font-semibold text-sm shadow-xl shadow-blue-600/30 flex items-center justify-center gap-2 transition-all active:scale-95 border border-blue-400/30"
+                >
+                  <span>Launch Your Ledger Free</span>
+                  <ArrowRight className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={onSignIn}
+                  className="w-full sm:w-auto px-6 py-3.5 rounded-xl bg-slate-900/90 hover:bg-slate-800 text-slate-200 hover:text-white font-semibold text-sm border border-white/[0.09] flex items-center justify-center gap-2 transition-all"
+                >
+                  <KeyRound className="w-4 h-4 text-slate-400" />
+                  <span>Sign In to Vault</span>
+                </button>
+              </>
+            )}
           </div>
 
           {/* Trust Metrics Pill */}
@@ -537,10 +568,10 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted, onSignIn
           </div>
           <div className="pt-2">
             <button
-              onClick={onGetStarted}
+              onClick={currentUser ? onOpenDashboard : onGetStarted}
               className="px-8 py-3.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-semibold text-sm shadow-xl shadow-blue-600/30 inline-flex items-center gap-2 transition-all active:scale-95"
             >
-              <span>Get Started with Tenura</span>
+              <span>{currentUser ? `Go to Your Vault (${currentUser.name})` : 'Get Started with Tenura'}</span>
               <ArrowRight className="w-4 h-4" />
             </button>
           </div>

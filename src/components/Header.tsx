@@ -7,7 +7,8 @@ import {
   LogOut,
   Users,
   ChevronDown,
-  ShieldCheck
+  ShieldCheck,
+  Globe
 } from 'lucide-react';
 import { useFinance } from '../context/FinanceContext';
 import { useAuth } from '../context/AuthContext';
@@ -17,12 +18,14 @@ interface HeaderProps {
   onOpenAddLiability: () => void;
   onOpenAddExpense: () => void;
   onOpenExportImport: () => void;
+  onViewLanding?: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
   onOpenAddLiability,
   onOpenAddExpense,
   onOpenExportImport,
+  onViewLanding,
 }) => {
   const { 
     selectedProfileId, 
@@ -79,6 +82,15 @@ export const Header: React.FC<HeaderProps> = ({
 
             {/* Mobile Actions */}
             <div className="flex items-center gap-1.5 md:hidden">
+              {onViewLanding && (
+                <button
+                  onClick={onViewLanding}
+                  className="p-2 rounded-xl bg-blue-500/10 text-blue-300 hover:text-white border border-blue-500/25 text-xs transition-colors"
+                  title="View Landing Page"
+                >
+                  <Globe className="w-3.5 h-3.5" />
+                </button>
+              )}
               <button
                 onClick={onOpenAddExpense}
                 className="p-2 rounded-xl bg-slate-900 text-slate-300 hover:text-white border border-white/[0.08] text-xs transition-colors"
@@ -158,6 +170,17 @@ export const Header: React.FC<HeaderProps> = ({
 
           {/* Desktop Actions & User Session Control */}
           <div className="hidden md:flex items-center gap-2 flex-shrink-0">
+            {onViewLanding && (
+              <button
+                onClick={onViewLanding}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-blue-500/10 hover:bg-blue-500/20 text-blue-300 hover:text-white border border-blue-500/25 text-xs font-medium transition-all"
+                title="View Product Landing Page & Overview"
+              >
+                <Globe className="w-3.5 h-3.5 text-blue-400" />
+                <span>Landing Page</span>
+              </button>
+            )}
+
             <button
               onClick={onOpenAddExpense}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-900/90 hover:bg-slate-800/90 text-slate-300 hover:text-white border border-white/[0.08] text-xs font-medium transition-all"
@@ -250,6 +273,18 @@ export const Header: React.FC<HeaderProps> = ({
 
                   {/* Production User Utilities */}
                   <div className="px-2 py-1.5 border-b border-white/[0.06] space-y-0.5 text-xs">
+                    {onViewLanding && (
+                      <button
+                        onClick={() => {
+                          setIsUserMenuOpen(false);
+                          onViewLanding();
+                        }}
+                        className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-slate-300 hover:bg-white/[0.05] hover:text-white transition-colors"
+                      >
+                        <Globe className="w-3.5 h-3.5 text-blue-400" />
+                        <span>Landing Page & Overview</span>
+                      </button>
+                    )}
                     <button
                       onClick={() => {
                         exportDataJSON();
