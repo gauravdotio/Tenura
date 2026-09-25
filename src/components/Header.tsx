@@ -8,7 +8,8 @@ import {
   Users,
   ChevronDown,
   ShieldCheck,
-  Globe
+  Globe,
+  X
 } from 'lucide-react';
 import { useFinance } from '../context/FinanceContext';
 import { useAuth } from '../context/AuthContext';
@@ -31,6 +32,7 @@ export const Header: React.FC<HeaderProps> = ({
     selectedProfileId, 
     setSelectedProfileId, 
     profiles, 
+    deleteProfile,
     exportDataJSON
   } = useFinance();
 
@@ -133,25 +135,42 @@ export const Header: React.FC<HeaderProps> = ({
                 <span>All Accounts</span>
               </button>
 
-              {profiles.map(p => {
+              {profiles.map((p, idx) => {
                 const isActive = selectedProfileId === p.id;
+                const isSecondary = idx > 0;
                 return (
-                  <button
-                    key={p.id}
-                    onClick={() => setSelectedProfileId(p.id)}
-                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-                      isActive
-                        ? 'bg-emerald-600 text-white shadow-sm shadow-emerald-500/20'
-                        : 'text-slate-400 hover:text-slate-200 hover:bg-white/[0.04]'
-                    }`}
-                  >
-                    <span className={`w-4 h-4 rounded-full text-[9px] font-bold flex items-center justify-center ${
-                      isActive ? 'bg-white/20 text-white' : 'bg-slate-800 text-slate-300'
-                    }`}>
-                      {p.initials}
-                    </span>
-                    <span>{p.name}</span>
-                  </button>
+                  <div key={p.id} className="relative group/pill flex items-center">
+                    <button
+                      onClick={() => setSelectedProfileId(p.id)}
+                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                        isActive
+                          ? 'bg-emerald-600 text-white shadow-sm shadow-emerald-500/20'
+                          : 'text-slate-400 hover:text-slate-200 hover:bg-white/[0.04]'
+                      }`}
+                    >
+                      <span className={`w-4 h-4 rounded-full text-[9px] font-bold flex items-center justify-center ${
+                        isActive ? 'bg-white/20 text-white' : 'bg-slate-800 text-slate-300'
+                      }`}>
+                        {p.initials}
+                      </span>
+                      <span>{p.name}</span>
+                    </button>
+                    {isSecondary && (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (window.confirm(`Delete secondary account "${p.name}"? Any records will be consolidated into your primary account.`)) {
+                            deleteProfile(p.id);
+                          }
+                        }}
+                        className="opacity-0 group-hover/pill:opacity-100 p-1 hover:bg-rose-500/20 text-slate-400 hover:text-rose-400 rounded-md transition-all -ml-1 mr-0.5"
+                        title={`Delete account ${p.name}`}
+                      >
+                        <X className="w-2.5 h-2.5" />
+                      </button>
+                    )}
+                  </div>
                 );
               })}
 

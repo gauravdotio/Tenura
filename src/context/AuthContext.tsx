@@ -27,6 +27,36 @@ const AVATAR_GRADIENTS = [
   'from-cyan-500 to-blue-500',
 ];
 
+function deduplicateUsers(usersList: UserAccount[]): UserAccount[] {
+  const result: UserAccount[] = [];
+  const seenIds = new Set<string>();
+  const seenEmails = new Set<string>();
+  const seenNames = new Set<string>();
+
+  // Prioritize real/synced accounts over placeholder demo ID
+  const sorted = [...usersList].sort((a, b) => {
+    if (a.id === 'user_gaurav') return 1;
+    if (b.id === 'user_gaurav') return -1;
+    return 0;
+  });
+
+  for (const u of sorted) {
+    const normName = u.name.trim().toLowerCase();
+    const normEmail = u.email ? u.email.trim().toLowerCase() : '';
+
+    if (seenIds.has(u.id)) continue;
+    if (normEmail && seenEmails.has(normEmail)) continue;
+    if (seenNames.has(normName)) continue;
+
+    seenIds.add(u.id);
+    if (normEmail) seenEmails.add(normEmail);
+    seenNames.add(normName);
+    result.push(u);
+  }
+
+  return result.length > 0 ? result : DEFAULT_USERS;
+}
+
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -42,7 +72,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const saved = localStorage.getItem(STORAGE_KEYS.USERS_LIST);
       if (saved) {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        if (Array.isArray(parsed) && parsed.length > 0) return deduplicateUsers(parsed);
       }
       return DEFAULT_USERS;
     } catch {
@@ -129,10 +159,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             lastLoginAt: new Date().toISOString(),
           };
           setCurrentUser(authedUser);
-          setUsers(prev => {
-            const exists = prev.some(u => u.id === authedUser.id);
-            return exists ? prev : [authedUser, ...prev];
-          });
+          setUsers(prev => deduplicateUsers([authedUser, ...prev]));
         }
       });
 
@@ -207,10 +234,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             lastLoginAt: new Date().toISOString(),
           };
           setCurrentUser(authedUser);
-          setUsers(prev => {
-            const exists = prev.some(x => x.id === authedUser.id);
-            return exists ? prev : [authedUser, ...prev];
-          });
+          setUsers(prev => deduplicateUsers([authedUser, ...prev]));
           return { success: true };
         }
 
@@ -307,7 +331,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       lastLoginAt: new Date().toISOString(),
     };
 
-    setUsers(prev => [newUser, ...prev.filter(u => u.email.toLowerCase() !== trimmedEmail)]);
+    setUsers(prev => deduplicateUsers([newUser, ...prev]));
     setCurrentUser(newUser);
     localStorage.setItem(STORAGE_KEYS.ACTIVE_SESSION, newUser.id);
 

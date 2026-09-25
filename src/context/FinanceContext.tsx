@@ -23,6 +23,7 @@ interface FinanceContextType {
   setSelectedProfileId: (id: string) => void;
   profiles: Profile[];
   addProfile: (profile: Omit<Profile, 'id'>) => Promise<void>;
+  deleteProfile: (profileId: string) => Promise<void>;
   
   liabilities: Liability[];
   addLiability: (item: Omit<Liability, 'id'>) => Promise<string>;
@@ -54,6 +55,79 @@ interface FinanceContextType {
 
 const FinanceContext = createContext<FinanceContextType | undefined>(undefined);
 
+function consolidateProfilesAndLiabilities(
+  rawProfiles: Profile[],
+  rawLiabilities: Liability[],
+  rawSchedules: EMISchedule[]
+): {
+  profiles: Profile[];
+  liabilities: Liability[];
+  schedules: EMISchedule[];
+} {
+  if (!rawProfiles || rawProfiles.length <= 1) {
+    return {
+      profiles: rawProfiles || [],
+      liabilities: rawLiabilities || [],
+      schedules: rawSchedules || []
+    };
+  }
+
+  const profilesByName = new Map<string, Profile[]>();
+  for (const p of rawProfiles) {
+    const key = p.name.trim().toLowerCase();
+    if (!profilesByName.has(key)) {
+      profilesByName.set(key, []);
+    }
+    profilesByName.get(key)!.push(p);
+  }
+
+  const consolidatedProfiles: Profile[] = [];
+  const profileIdRedirects = new Map<string, string>(); // oldId -> canonicalId
+
+  for (const [_, list] of profilesByName.entries()) {
+    if (list.length === 1) {
+      consolidatedProfiles.push(list[0]);
+    } else {
+      // Find the profile that already has liabilities, or default to the first one
+      let canonical = list[0];
+      for (const p of list) {
+        const hasLiab = rawLiabilities.some(l => l.profileId === p.id);
+        if (hasLiab) {
+          canonical = p;
+          break;
+        }
+      }
+      consolidatedProfiles.push(canonical);
+      for (const p of list) {
+        if (p.id !== canonical.id) {
+          profileIdRedirects.set(p.id, canonical.id);
+        }
+      }
+    }
+  }
+
+  // Remap liabilities and schedules from duplicate profiles to canonical profile
+  const updatedLiabilities = rawLiabilities.map(l => {
+    if (profileIdRedirects.has(l.profileId)) {
+      return { ...l, profileId: profileIdRedirects.get(l.profileId)! };
+    }
+    return l;
+  });
+
+  const updatedSchedules = rawSchedules.map(s => {
+    if (profileIdRedirects.has(s.profileId)) {
+      return { ...s, profileId: profileIdRedirects.get(s.profileId)! };
+    }
+    return s;
+  });
+
+  return {
+    profiles: consolidatedProfiles,
+    liabilities: updatedLiabilities,
+    schedules: updatedSchedules,
+  };
+}
+
 function loadLocalUserData(user: UserAccount | null): UserFinanceData {
   if (!user) {
     return {
@@ -79,7 +153,18 @@ function loadLocalUserData(user: UserAccount | null): UserFinanceData {
       if (saved) {
         const parsed = JSON.parse(saved);
         if (parsed && Array.isArray(parsed.profiles) && (parsed.liabilities?.length > 0 || parsed.profiles?.length > 0)) {
-          return parsed;
+          const consolidated = consolidateProfilesAndLiabilities(
+            parsed.profiles || [],
+            parsed.liabilities || [],
+            parsed.schedules || []
+          );
+          return {
+            profiles: consolidated.profiles,
+            liabilities: consolidated.liabilities,
+            schedules: consolidated.schedules,
+            expenses: parsed.expenses || [],
+            selectedProfileId: parsed.selectedProfileId || 'all',
+          };
         }
       }
     } catch (e) {
@@ -87,8 +172,8 @@ function loadLocalUserData(user: UserAccount | null): UserFinanceData {
     }
   }
 
-  // Pre-seeded for Gaurav demo
-  if (user.id === 'user_gaurav') {
+  // Pre-seeded for Gaurav demo or any account named Gaurav Rawat
+  if (user.id === 'user_gaurav' || user.name.toLowerCase().includes('gaurav')) {
     return {
       profiles: initialProfiles,
       liabilities: initialLiabilities,
@@ -153,7 +238,15 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
   // Synchronously initialize state from local vault so state is NEVER empty on initial render
   const initialData = useMemo(() => {
-    return currentUser ? loadLocalUserData(currentUser) : null;
+    if (!currentUser) return null;
+    const raw = loadLocalUserData(currentUser);
+    const consolidated = consolidateProfilesAndLiabilities(raw.profiles, raw.liabilities, raw.schedules);
+    return {
+      ...raw,
+      profiles: consolidated.profiles,
+      liabilities: consolidated.liabilities,
+      schedules: consolidated.schedules,
+    };
   }, [currentUser?.id]);
 
   const [selectedProfileId, setSelectedProfileId] = useState<string>(() => initialData?.selectedProfileId || 'all');
@@ -173,12 +266,21 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
     // Immediately restore from local vault
     const local = loadLocalUserData(currentUser);
-    if (local.profiles.length > 0 || local.liabilities.length > 0) {
-      setProfiles(local.profiles);
-      setLiabilities(local.liabilities);
-      setSchedules(local.schedules);
+    const consolidatedLocal = consolidateProfilesAndLiabilities(
+      local.profiles,
+      local.liabilities,
+      local.schedules
+    );
+    if (consolidatedLocal.profiles.length > 0 || consolidatedLocal.liabilities.length > 0) {
+      setProfiles(consolidatedLocal.profiles);
+      setLiabilities(consolidatedLocal.liabilities);
+      setSchedules(consolidatedLocal.schedules);
       setExpenses(local.expenses);
-      setSelectedProfileId(local.selectedProfileId || 'all');
+      setSelectedProfileId(prev => {
+        if (prev === 'all') return 'all';
+        if (consolidatedLocal.profiles.some(p => p.id === prev)) return prev;
+        return consolidatedLocal.profiles[0]?.id || 'all';
+      });
     }
 
     if (isCloudConnected) {
@@ -239,12 +341,22 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
             isRecurring: Boolean(e.is_recurring),
           }));
 
-          // If Supabase returned data, use it
+          // If Supabase returned data, consolidate and use it
           if (dbLiabilities.length > 0) {
-            setLiabilities(dbLiabilities);
-            setSchedules(dbSchedules);
+            const consolidated = consolidateProfilesAndLiabilities(
+              dbProfiles.length > 0 ? dbProfiles : local.profiles,
+              dbLiabilities,
+              dbSchedules
+            );
+            setLiabilities(consolidated.liabilities);
+            setSchedules(consolidated.schedules);
             setExpenses(dbExpenses);
-            if (dbProfiles.length > 0) setProfiles(dbProfiles);
+            setProfiles(consolidated.profiles);
+            setSelectedProfileId(prev => {
+              if (prev === 'all') return 'all';
+              if (consolidated.profiles.some(p => p.id === prev)) return prev;
+              return consolidated.profiles[0]?.id || 'all';
+            });
           } else if (local.liabilities.length > 0) {
             // Local vault has liabilities but Supabase was empty: Auto-sync up to Supabase!
             console.log('Synchronizing local vault to Supabase...');
@@ -340,6 +452,12 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
   }, []);
 
   const addProfile = useCallback(async (profile: Omit<Profile, 'id'>) => {
+    const existing = profiles.find(p => p.name.trim().toLowerCase() === profile.name.trim().toLowerCase());
+    if (existing) {
+      setSelectedProfileId(existing.id);
+      return;
+    }
+
     const id = `profile-${Date.now()}`;
     const newProfile: Profile = { ...profile, id };
 
@@ -360,7 +478,36 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
         console.error('Error saving profile to Supabase:', error);
       }
     }
-  }, [isCloudConnected, currentUser]);
+  }, [profiles, isCloudConnected, currentUser]);
+
+  const deleteProfile = useCallback(async (profileId: string) => {
+    if (profiles.length <= 1) {
+      alert("You cannot delete your only primary profile.");
+      return;
+    }
+
+    const remainingProfiles = profiles.filter(p => p.id !== profileId);
+    const primaryId = remainingProfiles[0]?.id || 'all';
+
+    // Safely reassign any liabilities and schedules to primary profile
+    setLiabilities(prev => prev.map(l => l.profileId === profileId ? { ...l, profileId: primaryId } : l));
+    setSchedules(prev => prev.map(s => s.profileId === profileId ? { ...s, profileId: primaryId } : s));
+    setProfiles(remainingProfiles);
+
+    if (selectedProfileId === profileId) {
+      setSelectedProfileId(primaryId);
+    }
+
+    if (isCloudConnected && currentUser) {
+      try {
+        await supabase.from('profiles').delete().eq('id', profileId);
+        await supabase.from('liabilities').update({ profile_id: primaryId }).eq('profile_id', profileId);
+        await supabase.from('emi_schedules').update({ profile_id: primaryId }).eq('profile_id', profileId);
+      } catch (err) {
+        console.error('Error deleting profile from Supabase:', err);
+      }
+    }
+  }, [profiles, selectedProfileId, isCloudConnected, currentUser]);
 
   const generateAndAddSchedule = useCallback(async (
     liabilityId: string, 
@@ -865,6 +1012,7 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
     setSelectedProfileId,
     profiles,
     addProfile,
+    deleteProfile,
     liabilities,
     addLiability,
     updateLiability,
