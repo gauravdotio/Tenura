@@ -15,6 +15,10 @@ import { PolicyForm } from './components/forms/PolicyForm';
 import { MemberForm } from './components/forms/MemberForm';
 import { AuthPage } from './pages/AuthPage';
 import { LandingPage } from './pages/LandingPage';
+import { AboutPage } from './pages/site/AboutPage';
+import { ContactPage } from './pages/site/ContactPage';
+import { PrivacyPage, SecurityPage, TermsPage } from './pages/site/LegalPages';
+import { NotFoundPage } from './pages/site/NotFoundPage';
 import { OverviewPage } from './pages/OverviewPage';
 import { LiabilitiesPage } from './pages/LiabilitiesPage';
 import { EmiSchedulesPage } from './pages/EmiSchedulesPage';
@@ -38,6 +42,15 @@ export default function App() {
   );
 }
 
+const PUBLIC_PAGES: Record<string, () => ReactNode> = {
+  '/': () => <LandingPage />,
+  '/about': () => <AboutPage />,
+  '/contact': () => <ContactPage />,
+  '/privacy': () => <PrivacyPage />,
+  '/terms': () => <TermsPage />,
+  '/security': () => <SecurityPage />,
+};
+
 function Router() {
   const { user, loading } = useAuth();
   const { path, params } = useRoute();
@@ -54,7 +67,8 @@ function Router() {
 
   if (!inApp) {
     if (path === '/login' || path === '/signup') return user ? <FullScreenSpinner /> : <AuthPage key={path} mode={path === '/signup' ? 'signup' : 'login'} />;
-    return <LandingPage />;
+    const page = PUBLIC_PAGES[path];
+    return page ? page() : <NotFoundPage />;
   }
   if (!user) return <FullScreenSpinner />;
 

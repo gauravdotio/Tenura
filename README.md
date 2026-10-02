@@ -18,7 +18,8 @@ Tenura is a household finance tracker built for Indian families. It keeps credit
 - **Expenses & budgets** — categorised spending by month against each member's budget.
 - **Analytics** — 12-month outflow projection, debt burndown, outstanding by lender / member, spending by category.
 - **Your data, portable** — JSON backup & restore (including backups from the previous version) and CSV export.
-- Light & dark themes, responsive down to 360 px, keyboard-accessible dialogs.
+- Marketing site with About, Contact (stored in Postgres), Privacy, Terms and Security pages.
+- Light & dark themes, responsive down to 360 px, keyboard-accessible dialogs, reduced-motion aware animations.
 
 ## Tech stack
 
@@ -59,7 +60,7 @@ npm run dev          # http://localhost:5173
 Without Supabase configured the app runs in **local mode**: accounts and data live in the browser. To use the cloud backend:
 
 1. Create a project at [supabase.com](https://supabase.com).
-2. In **SQL Editor**, run `supabase/migrations/001_init.sql`.
+2. In **SQL Editor**, run `supabase/migrations/001_init.sql`, then `003_contact_messages.sql` (contact-form inbox).
    - Upgrading from the pre-2.0 schema? Also run `002_migrate_legacy.sql` to copy existing rows across.
 3. Copy `.env.example` to `.env` and fill in the project URL and anon key (Project Settings → API).
 4. Optional: in Authentication → URL Configuration, add your deployed URL so email-confirmation links work.

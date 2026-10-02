@@ -110,6 +110,13 @@ export function AuthPage({ mode }: { mode: 'login' | 'signup' }) {
                 <Button type="submit" variant="primary" size="lg" loading={busy} className="mt-2 w-full">
                   {isSignup ? 'Create account' : 'Sign in'}
                 </Button>
+                {isSignup && (
+                  <p className="text-center text-xs text-ink-faint">
+                    By creating an account you agree to our{' '}
+                    <a href={href('/terms')} className="underline underline-offset-2 hover:text-ink">Terms</a> and{' '}
+                    <a href={href('/privacy')} className="underline underline-offset-2 hover:text-ink">Privacy policy</a>.
+                  </p>
+                )}
               </form>
 
               <div className="my-6 flex items-center gap-3 text-xs text-ink-faint">
