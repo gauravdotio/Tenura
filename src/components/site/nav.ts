@@ -10,8 +10,3 @@ export function goToSection(id: string, e?: React.MouseEvent) {
     setTimeout(() => document.getElementById(id)?.scrollIntoView({ behavior: 'smooth' }), 80);
   }
 }
-
-export function startDemoAndGo(startDemo: () => void) {
-  startDemo();
-  navigate('/app');
-}

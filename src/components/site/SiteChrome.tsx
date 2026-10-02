@@ -5,7 +5,7 @@ import { href, navigate } from '../../lib/router';
 import { SITE } from '../../lib/site';
 import { Logo } from '../layout/Logo';
 import { Button, cx } from '../ui';
-import { goToSection, startDemoAndGo } from './nav';
+import { goToSection } from './nav';
 
 const SECTIONS = [
   { id: 'features', label: 'Features' },
@@ -43,7 +43,7 @@ export function SiteHeader() {
           ))}
         </nav>
         <div className="flex items-center gap-2">
-          {user && user.mode !== 'demo' ? (
+          {user ? (
             <Button variant="primary" size="sm" onClick={() => navigate('/app')}>Open dashboard</Button>
           ) : (
             <>
@@ -79,7 +79,6 @@ export function SiteHeader() {
 }
 
 export function SiteFooter() {
-  const { startDemo } = useAuth();
   const columns: { title: string; links: { label: string; to?: string; section?: string; onClick?: () => void; external?: string }[] }[] = [
     {
       title: 'Product',
@@ -87,7 +86,8 @@ export function SiteFooter() {
         { label: 'Features', section: 'features' },
         { label: 'How it works', section: 'how-it-works' },
         { label: 'EMI calculator', section: 'calculator' },
-        { label: 'Live demo', onClick: () => startDemoAndGo(startDemo) },
+        { label: 'Create account', to: '/signup' },
+        { label: 'Sign in', to: '/login' },
         { label: 'FAQ', section: 'faq' },
       ],
     },

@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { ArrowRight, CreditCard, Receipt, ShieldCheck, Sparkles, UserPlus } from 'lucide-react';
+import { ArrowRight, CreditCard, Receipt, ShieldCheck, UserPlus } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useFinance } from '../context/FinanceContext';
 import { useOpenDialog } from '../context/DialogContext';
@@ -18,7 +18,7 @@ function greeting(d = new Date()) {
 
 export function OverviewPage() {
   const { user } = useAuth();
-  const { data, scoped, summary, scope, memberMap, installmentsByLiability, loadSampleData } = useFinance();
+  const { data, scoped, summary, scope, memberMap, installmentsByLiability } = useFinance();
   const openDialog = useOpenDialog();
   const today = toISODate(new Date());
 
@@ -43,7 +43,7 @@ export function OverviewPage() {
   const budgetPct = summary.monthlyBudget > 0 ? (summary.spentThisMonth / summary.monthlyBudget) * 100 : 0;
   const totalPlanned = summary.repaid + summary.outstanding;
 
-  if (isEmpty) return <Onboarding name={firstName} onSample={loadSampleData} />;
+  if (isEmpty) return <Onboarding name={firstName} />;
 
   return (
     <div className="animate-fade-in">
@@ -201,7 +201,7 @@ export function OverviewPage() {
   );
 }
 
-function Onboarding({ name, onSample }: { name?: string; onSample: () => Promise<void> }) {
+function Onboarding({ name }: { name?: string }) {
   const openDialog = useOpenDialog();
   const steps = [
     { icon: CreditCard, title: 'Add your cards & loans', body: 'Balances, EMIs and tenures — schedules are generated for you.', action: () => openDialog({ type: 'liability' }), cta: 'Add loan or card' },
@@ -228,14 +228,6 @@ function Onboarding({ name, onSample }: { name?: string; onSample: () => Promise
           </Card>
         ))}
       </div>
-      <Card className="mt-4 flex flex-col items-start gap-4 p-5 sm:flex-row sm:items-center">
-        <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-accent-soft text-accent"><Sparkles className="h-4 w-4" /></span>
-        <div className="flex-1">
-          <h2 className="text-[15px] font-semibold text-ink">Just looking around?</h2>
-          <p className="text-sm text-ink-muted">Fill your account with a sample household — you can clear it any time from Settings.</p>
-        </div>
-        <Button onClick={() => void onSample()}>Load sample data</Button>
-      </Card>
     </div>
   );
 }

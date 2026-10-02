@@ -6,7 +6,7 @@ import { Logo } from '../components/layout/Logo';
 import { Button, Field, Input } from '../components/ui';
 
 export function AuthPage({ mode }: { mode: 'login' | 'signup' }) {
-  const { signIn, signUp, startDemo, backend } = useAuth();
+  const { signIn, signUp, backend } = useAuth();
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -118,19 +118,6 @@ export function AuthPage({ mode }: { mode: 'login' | 'signup' }) {
                   </p>
                 )}
               </form>
-
-              <div className="my-6 flex items-center gap-3 text-xs text-ink-faint">
-                <span className="h-px flex-1 bg-line" /> or <span className="h-px flex-1 bg-line" />
-              </div>
-              <Button
-                className="w-full"
-                onClick={() => {
-                  startDemo();
-                  navigate('/app', { replace: true });
-                }}
-              >
-                Explore the demo — no sign-up
-              </Button>
 
               <p className="mt-8 text-center text-sm text-ink-muted">
                 {isSignup ? 'Already have an account? ' : 'New to Tenura? '}

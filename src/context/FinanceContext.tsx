@@ -4,7 +4,7 @@ import type { AuthUser } from './AuthContext';
 import { useToast } from './ToastContext';
 import { supabase } from '../lib/supabase';
 import type { FinanceRepository } from '../lib/data/repository';
-import { LocalRepository, MemoryRepository } from '../lib/data/localRepository';
+import { LocalRepository } from '../lib/data/localRepository';
 import { SupabaseRepository } from '../lib/data/supabaseRepository';
 import { applyMutation, type Mutation } from '../lib/finance/mutations';
 import {
@@ -26,7 +26,7 @@ import {
   summarize,
   type Summary,
 } from '../lib/finance/calc';
-import { buildSampleData, newId, primaryMember } from '../lib/finance/sample';
+import { newId, primaryMember } from '../lib/finance/sample';
 import { toISODate } from '../lib/finance/dates';
 
 type Status = 'loading' | 'ready' | 'error';
@@ -67,14 +67,12 @@ interface FinanceContextValue {
   payPremium(id: string): Promise<void>;
 
   replaceData(data: FinanceData): Promise<void>;
-  loadSampleData(): Promise<void>;
   clearAllData(): Promise<void>;
 }
 
 const FinanceContext = createContext<FinanceContextValue | null>(null);
 
 function repositoryFor(user: AuthUser): FinanceRepository {
-  if (user.mode === 'demo') return new MemoryRepository(buildSampleData(user.name));
   if (user.mode === 'supabase' && supabase) return new SupabaseRepository(supabase);
   return new LocalRepository(user.id);
 }
@@ -114,14 +112,13 @@ export function FinanceProvider({ user, children }: { user: AuthUser; children: 
   const setScope = useCallback(
     (s: MemberScope) => {
       setScopeState(s);
-      if (user.mode === 'demo') return; // the demo leaves nothing behind in the browser
       try {
         localStorage.setItem(scopeKey, s);
       } catch {
         /* private mode */
       }
     },
-    [scopeKey, user.mode],
+    [scopeKey],
   );
 
   // Load (and make sure the household has its primary member)
@@ -286,21 +283,6 @@ export function FinanceProvider({ user, children }: { user: AuthUser; children: 
 
   const replaceData = useCallback((next: FinanceData) => dispatch({ type: 'data/replace', data: next }), [dispatch]);
 
-  const loadSampleData = useCallback(async () => {
-    const sample = buildSampleData(dataRef.current.members.find((m) => m.isPrimary)?.name ?? user.name);
-    // Keep the existing primary member's id and settings
-    const primary = dataRef.current.members.find((m) => m.isPrimary);
-    if (primary) {
-      const sampleSelf = sample.members[0];
-      const swap = <T extends { memberId: string }>(x: T) => (x.memberId === sampleSelf.id ? { ...x, memberId: primary.id } : x);
-      sample.members[0] = primary;
-      sample.liabilities = sample.liabilities.map(swap);
-      sample.expenses = sample.expenses.map(swap);
-      sample.policies = sample.policies.map(swap);
-    }
-    await replaceData(sample);
-  }, [replaceData, user.name]);
-
   const clearAllData = useCallback(async () => {
     const primary = dataRef.current.members.find((m) => m.isPrimary) ?? primaryMember(user.name);
     await replaceData({ ...EMPTY_DATA, members: [primary] });
@@ -326,7 +308,7 @@ export function FinanceProvider({ user, children }: { user: AuthUser; children: 
     saveLiability, removeLiability, convertToEmi, setInstallmentPaid, markCardPaid,
     saveExpense, removeExpense,
     savePolicy, removePolicy, payPremium,
-    replaceData, loadSampleData, clearAllData,
+    replaceData, clearAllData,
   };
 
   return <FinanceContext.Provider value={value}>{children}</FinanceContext.Provider>;

@@ -1,9 +1,7 @@
 import { ArrowRight, Heart, Lock, Sparkles, Users } from 'lucide-react';
-import { useAuth } from '../../context/AuthContext';
 import { navigate } from '../../lib/router';
 import { SITE } from '../../lib/site';
 import { ContentPage, GitHubMark, Prose } from '../../components/site/SiteChrome';
-import { startDemoAndGo } from '../../components/site/nav';
 import { Reveal } from '../../components/site/Reveal';
 import { Button } from '../../components/ui';
 
@@ -15,7 +13,6 @@ const VALUES = [
 ];
 
 export function AboutPage() {
-  const { startDemo } = useAuth();
   return (
     <ContentPage
       eyebrow="About"
@@ -58,11 +55,11 @@ export function AboutPage() {
 
       <Reveal className="mt-14 flex flex-col gap-3 rounded-2xl border border-line bg-surface-sunken p-6 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <p className="font-semibold text-ink">See it with a sample household</p>
-          <p className="text-sm text-ink-muted">No sign-up needed — nothing is saved.</p>
+          <p className="font-semibold text-ink">Get your household organised</p>
+          <p className="text-sm text-ink-muted">Free while in beta. Takes about ten minutes to set up.</p>
         </div>
         <div className="flex gap-2">
-          <Button variant="primary" onClick={() => startDemoAndGo(startDemo)}>Explore the demo <ArrowRight className="h-4 w-4" /></Button>
+          <Button variant="primary" onClick={() => navigate('/signup')}>Create free account <ArrowRight className="h-4 w-4" /></Button>
           <Button onClick={() => window.open(SITE.github, '_blank', 'noopener')} icon={<GitHubMark className="h-4 w-4" />}>Code</Button>
         </div>
       </Reveal>

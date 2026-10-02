@@ -9,17 +9,15 @@ import {
   Lock,
   Receipt,
   ShieldCheck,
-  Sparkles,
   Users,
 } from 'lucide-react';
-import { useAuth } from '../context/AuthContext';
 import { emiBreakdown } from '../lib/finance/calc';
 import { formatINR } from '../lib/format';
 import { navigate } from '../lib/router';
 import { Button, Card, cx } from '../components/ui';
 import { CountUp, Reveal } from '../components/site/Reveal';
 import { SiteFooter, SiteHeader } from '../components/site/SiteChrome';
-import { startDemoAndGo } from '../components/site/nav';
+import { goToSection } from '../components/site/nav';
 
 const FEATURES = [
   { icon: CreditCard, title: 'Cards, loans & EMIs', body: 'Every credit card balance, personal loan, consumer EMI and pay-later plan with what’s actually left to pay.' },
@@ -48,8 +46,6 @@ const FAQ = [
 ];
 
 export function LandingPage() {
-  const { startDemo } = useAuth();
-  const openDemo = () => startDemoAndGo(startDemo);
 
   return (
     <div className="min-h-dvh bg-canvas">
@@ -80,7 +76,7 @@ export function LandingPage() {
                 Create free account
                 <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
               </Button>
-              <Button size="lg" onClick={openDemo} icon={<Sparkles className="h-4 w-4" />}>Explore the live demo</Button>
+              <Button size="lg" onClick={() => goToSection('how-it-works')}>See how it works</Button>
             </div>
             <p className="rise-in mt-4 text-xs text-ink-faint [animation-delay:300ms]">No bank linking. No card details. Just the numbers you choose to add.</p>
           </div>
@@ -218,8 +214,8 @@ export function LandingPage() {
             <button onClick={() => navigate('/signup')} className="h-12 rounded-xl bg-canvas px-6 text-[15px] font-medium text-ink transition-transform hover:-translate-y-0.5">
               Create free account
             </button>
-            <button onClick={openDemo} className="h-12 rounded-xl border border-ink-inverse/25 px-6 text-[15px] font-medium text-ink-inverse transition-colors hover:bg-ink-inverse/10">
-              Explore the demo
+            <button onClick={() => navigate('/login')} className="h-12 rounded-xl border border-ink-inverse/25 px-6 text-[15px] font-medium text-ink-inverse transition-colors hover:bg-ink-inverse/10">
+              Sign in
             </button>
           </div>
         </Reveal>

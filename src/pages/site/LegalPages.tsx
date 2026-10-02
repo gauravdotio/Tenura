@@ -62,7 +62,7 @@ export function PrivacyPage() {
         <p>Nobody, except the infrastructure providers above, which process data only to host the service. We never sell or rent personal data. We would only disclose information if required by law.</p>
 
         <h2 id="local">5. Cookies & local storage</h2>
-        <p>Tenura doesn’t use advertising or tracking cookies. Your browser’s local storage keeps your sign-in session and preferences such as theme. In the demo, nothing is stored at all.</p>
+        <p>Tenura doesn’t use advertising or tracking cookies. Your browser’s local storage keeps your sign-in session and preferences such as theme.</p>
 
         <h2 id="rights">6. Your rights</h2>
         <ul>
@@ -98,7 +98,7 @@ export function TermsPage() {
       <Toc items={toc} />
       <Prose>
         <h2 id="service">1. The service</h2>
-        <p>Tenura is a free tool, currently in beta, for keeping track of household loans, credit cards, EMIs, insurance premiums and expenses. By creating an account or using the demo you agree to these terms.</p>
+        <p>Tenura is a free tool, currently in beta, for keeping track of household loans, credit cards, EMIs, insurance premiums and expenses. By creating an account you agree to these terms.</p>
 
         <h2 id="advice">2. Not financial advice</h2>
         <p>Tenura is a tracker. It isn’t a bank, lender, insurer or registered financial adviser. Calculations such as EMIs, interest and projections are estimates based on what you enter — <strong>always confirm amounts and due dates with your lender or insurer</strong>. Tenura doesn’t make payments for you.</p>
@@ -135,7 +135,7 @@ export function SecurityPage() {
     { icon: UserCheck, title: 'Cross-account checks', body: 'Database triggers reject any record that points at a family member from a different account.' },
     { icon: KeyRound, title: 'Managed authentication', body: 'Sign-in is handled by Supabase Auth. Passwords are hashed; Tenura’s code never stores or logs them.' },
     { icon: Cloud, title: 'Encrypted in transit', body: 'All traffic is served over HTTPS, and the database is reachable only through authenticated API requests.' },
-    { icon: ShieldCheck, title: 'Nothing left on screen', body: 'Signing out discards your household’s data from memory. The demo never writes anything to your device.' },
+    { icon: ShieldCheck, title: 'Nothing left on screen', body: 'Signing out discards your household’s data from memory, so the next person on the device sees nothing.' },
     { icon: Trash2, title: 'Real deletion', body: 'Deleting your account removes your login and, through cascading deletes, every record you created.' },
   ];
   return (

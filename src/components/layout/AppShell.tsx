@@ -41,7 +41,6 @@ export function AppShell({ path, children }: { path: string; children: ReactNode
   const [drawerPath, setDrawerPath] = useState<string | null>(null);
   const drawerOpen = drawerPath === path;
   const setDrawerOpen = (open: boolean) => setDrawerPath(open ? path : null);
-  const { user } = useAuth();
   useEffect(() => {
     if (!drawerOpen) return;
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && setDrawerPath(null);
@@ -83,12 +82,6 @@ export function AppShell({ path, children }: { path: string; children: ReactNode
           <QuickAdd compact />
         </header>
 
-        {user?.mode === 'demo' && (
-          <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 border-b border-line bg-accent-soft px-4 py-2 text-center text-[13px] text-ink">
-            <span>You’re exploring a demo household. Changes aren’t saved.</span>
-            <a href={href('/signup')} className="font-medium text-accent hover:underline">Create your free account →</a>
-          </div>
-        )}
 
         <main id="main" className="mx-auto w-full max-w-6xl flex-1 px-4 pb-16 pt-6 sm:px-6 lg:px-10 lg:pt-10">
           {children}
@@ -297,7 +290,7 @@ function UserMenu({ path }: { path: string }) {
             }}
             className="flex w-full items-center gap-2.5 rounded-lg px-2 py-2 text-left text-sm text-ink-muted hover:bg-surface-sunken hover:text-ink"
           >
-            <LogOut className="h-4 w-4" /> {user.mode === 'demo' ? 'Exit demo' : 'Sign out'}
+            <LogOut className="h-4 w-4" /> Sign out
           </button>
         </div>
       )}
@@ -305,7 +298,7 @@ function UserMenu({ path }: { path: string }) {
         <MemberAvatar member={{ name: user.name, color: primary?.color ?? 'blue' }} />
         <span className="min-w-0 flex-1">
           <span className="block truncate text-sm font-medium text-ink">{user.name}</span>
-          <span className="block truncate text-xs text-ink-faint">{user.mode === 'demo' ? 'Demo account' : user.email}</span>
+          <span className="block truncate text-xs text-ink-faint">{user.email}</span>
         </span>
         <ChevronsUpDown className="h-4 w-4 text-ink-faint" aria-hidden />
       </button>

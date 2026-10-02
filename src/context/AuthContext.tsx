@@ -13,7 +13,7 @@ import {
 } from '../lib/auth/localAuth';
 import { LocalRepository } from '../lib/data/localRepository';
 
-export type AuthMode = 'supabase' | 'local' | 'demo';
+export type AuthMode = 'supabase' | 'local';
 
 export interface AuthUser {
   id: string;
@@ -31,7 +31,6 @@ interface AuthContextValue {
   signIn(email: string, password: string): Promise<void>;
   /** Resolves to `confirmEmail: true` when Supabase requires email confirmation first. */
   signUp(input: { name: string; email: string; password: string }): Promise<{ confirmEmail: boolean }>;
-  startDemo(): void;
   signOut(): Promise<void>;
   updateName(name: string): Promise<void>;
   deleteAccount(): Promise<void>;
@@ -67,8 +66,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setLoading(false);
     });
     const { data } = supabase.auth.onAuthStateChange((_event, session) => {
-      // Keep the demo session if one is running; otherwise mirror Supabase.
-      setUser((prev) => (prev?.mode === 'demo' ? prev : session ? fromSupabase(session.user) : null));
+      setUser(session ? fromSupabase(session.user) : null);
     });
     return () => data.subscription.unsubscribe();
   }, []);
@@ -102,10 +100,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setLocalSession(account.id);
     setUser(fromLocal(account));
     return { confirmEmail: false };
-  }, []);
-
-  const startDemo = useCallback(() => {
-    setUser({ id: `demo-${crypto.randomUUID()}`, name: 'Gaurav', email: 'demo@tenura.app', mode: 'demo' });
   }, []);
 
   const signOut = useCallback(async () => {
@@ -143,9 +137,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const value = useMemo<AuthContextValue>(
     () => ({
       user, loading, backend: isSupabaseConfigured ? 'supabase' : 'local',
-      signIn, signUp, startDemo, signOut, updateName, deleteAccount,
+      signIn, signUp, signOut, updateName, deleteAccount,
     }),
-    [user, loading, signIn, signUp, startDemo, signOut, updateName, deleteAccount],
+    [user, loading, signIn, signUp, signOut, updateName, deleteAccount],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

@@ -1,5 +1,5 @@
 import { useMemo, useRef, useState, type FormEvent, type ReactNode } from 'react';
-import { Cloud, Download, FileJson, HardDrive, Monitor, Moon, Sparkles, Sun, Upload } from 'lucide-react';
+import { Cloud, Download, FileJson, HardDrive, Monitor, Moon, Sun, Upload } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useFinance } from '../context/FinanceContext';
 import { useTheme } from '../context/ThemeContext';
@@ -27,18 +27,17 @@ function Section({ title, description, children }: { title: string; description?
 
 export function SettingsPage() {
   const { user, updateName, deleteAccount } = useAuth();
-  const { data, storage, installmentsByLiability, replaceData, loadSampleData, clearAllData } = useFinance();
+  const { data, storage, installmentsByLiability, replaceData, clearAllData } = useFinance();
   const { theme, setTheme } = useTheme();
   const toast = useToast();
   const fileRef = useRef<HTMLInputElement>(null);
   const [name, setName] = useState(user?.name ?? '');
   const [savingName, setSavingName] = useState(false);
   const [pendingImport, setPendingImport] = useState<{ data: FinanceData; source: string } | null>(null);
-  const [confirm, setConfirm] = useState<'sample' | 'clear' | 'delete' | null>(null);
+  const [confirm, setConfirm] = useState<'clear' | 'delete' | null>(null);
   const [busy, setBusy] = useState(false);
   const [deleteText, setDeleteText] = useState('');
-  const legacy = useMemo(() => (storage === 'demo' ? [] : findLegacyVaults()), [storage]);
-  const isDemo = user?.mode === 'demo';
+  const legacy = useMemo(() => findLegacyVaults(), []);
 
   async function saveName(e: FormEvent) {
     e.preventDefault();
@@ -89,19 +88,17 @@ export function SettingsPage() {
     <div className="animate-fade-in space-y-4">
       <PageHeader title="Settings" description="Your account, appearance and data." />
 
-      <Section title="Account" description={isDemo ? 'The demo account can’t be edited.' : 'How you appear in Tenura.'}>
+      <Section title="Account" description="How you appear in Tenura.">
         <form onSubmit={saveName} className="grid max-w-md gap-4">
           <Field label="Name" htmlFor="set-name">
-            <Input id="set-name" value={name} onChange={(e) => setName(e.target.value)} disabled={isDemo} />
+            <Input id="set-name" value={name} onChange={(e) => setName(e.target.value)} />
           </Field>
           <Field label="Email" htmlFor="set-email">
             <Input id="set-email" value={user?.email ?? ''} disabled readOnly />
           </Field>
-          {!isDemo && (
-            <Button type="submit" variant="primary" className="justify-self-start" loading={savingName} disabled={name.trim() === user?.name}>
-              Save
-            </Button>
-          )}
+          <Button type="submit" variant="primary" className="justify-self-start" loading={savingName} disabled={name.trim() === user?.name}>
+            Save
+          </Button>
         </form>
       </Section>
 
@@ -119,17 +116,15 @@ export function SettingsPage() {
 
       <Section title="Storage" description="Where your household’s data lives.">
         <div className="flex items-start gap-3 rounded-xl bg-surface-sunken p-4">
-          {storage === 'supabase' ? <Cloud className="mt-0.5 h-5 w-5 text-positive" /> : storage === 'demo' ? <Sparkles className="mt-0.5 h-5 w-5 text-accent" /> : <HardDrive className="mt-0.5 h-5 w-5 text-ink-muted" />}
+          {storage === 'supabase' ? <Cloud className="mt-0.5 h-5 w-5 text-positive" /> : <HardDrive className="mt-0.5 h-5 w-5 text-ink-muted" />}
           <div className="text-sm">
             <p className="font-medium text-ink">
-              {storage === 'supabase' ? 'Synced to the cloud' : storage === 'demo' ? 'Demo — in memory only' : 'Stored in this browser'}
+              {storage === 'supabase' ? 'Synced to the cloud' : 'Stored in this browser'}
             </p>
             <p className="mt-0.5 text-ink-muted">
               {storage === 'supabase'
                 ? 'Saved to your private Postgres database. Row-level security means only you can read it.'
-                : storage === 'demo'
-                  ? 'Nothing you change here is saved. Create an account to keep your data.'
-                  : 'Data stays on this device. Export a backup regularly, or connect Supabase to sync across devices.'}
+                : 'Data stays on this device. Export a backup regularly, or connect Supabase to sync across devices.'}
             </p>
           </div>
         </div>
@@ -169,18 +164,12 @@ export function SettingsPage() {
         )}
       </Section>
 
-      <Section title="Sample data" description="Useful for trying things out.">
+      <Section title="Danger zone" description="These can’t be undone.">
         <div className="flex flex-wrap gap-2">
-          <Button icon={<Sparkles className="h-4 w-4" />} onClick={() => setConfirm('sample')}>Load sample household</Button>
-          <Button variant="ghost" className="text-negative hover:text-negative" onClick={() => setConfirm('clear')}>Clear all data</Button>
+          <Button className="text-negative hover:text-negative" onClick={() => setConfirm('clear')}>Clear all data…</Button>
+          <Button variant="danger" onClick={() => setConfirm('delete')}>Delete my account…</Button>
         </div>
       </Section>
-
-      {!isDemo && (
-        <Section title="Delete account" description="Permanently remove your account and everything in it.">
-          <Button variant="danger" onClick={() => setConfirm('delete')}>Delete my account…</Button>
-        </Section>
-      )}
 
       <ConfirmDialog
         open={pendingImport !== null}
@@ -198,16 +187,6 @@ export function SettingsPage() {
             </>
           )
         }
-      />
-      <ConfirmDialog
-        open={confirm === 'sample'}
-        onClose={() => setConfirm(null)}
-        onConfirm={() => void run(loadSampleData, 'Sample household loaded')}
-        busy={busy}
-        tone="primary"
-        confirmLabel="Load sample data"
-        title="Replace your data with a sample household?"
-        description={`Your current data (${counts(data)}) will be replaced. Your own name and settings are kept.`}
       />
       <ConfirmDialog
         open={confirm === 'clear'}

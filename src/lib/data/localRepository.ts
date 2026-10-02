@@ -37,21 +37,3 @@ export class LocalRepository implements FinanceRepository {
     localStorage.removeItem(keyFor(userId));
   }
 }
-
-/** The demo account: lives in memory only and is gone on sign-out or reload. */
-export class MemoryRepository implements FinanceRepository {
-  readonly kind = 'demo';
-  private data: FinanceData;
-
-  constructor(initial: FinanceData) {
-    this.data = initial;
-  }
-
-  async load() {
-    return this.data;
-  }
-
-  async apply(mutation: Mutation) {
-    this.data = applyMutation(this.data, mutation);
-  }
-}
