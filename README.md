@@ -6,7 +6,7 @@
 
 Tenura is a household finance tracker built for Indian families. It keeps credit cards, loans, consumer EMIs, pay-later plans, LIC / insurance policies and daily expenses for you *and* the family members you look after, and tells you what's due next.
 
-**Live: [tenura-rose.vercel.app](https://tenura-rose.vercel.app)** — create a free account to try it.
+**Live: [tenura.gauravdot.in](https://tenura.gauravdot.in)** — create a free account to try it.
 
 ## Features
 
