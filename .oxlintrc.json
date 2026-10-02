@@ -4,5 +4,11 @@
   "rules": {
     "react/rules-of-hooks": "error",
     "react/only-export-components": ["warn", { "allowConstantExport": true }]
-  }
+  },
+  "overrides": [
+    {
+      "files": ["src/context/**", "src/components/ui/index.tsx", "src/components/layout/AppShell.tsx"],
+      "rules": { "react/only-export-components": "off" }
+    }
+  ]
 }

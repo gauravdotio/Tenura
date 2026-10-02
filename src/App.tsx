@@ -1,355 +1,155 @@
-import React, { useState, useCallback, useEffect } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useState, type ReactNode } from 'react';
+import { AlertTriangle, Loader2 } from 'lucide-react';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { FinanceProvider, useFinance } from './context/FinanceContext';
-import { LoginPage } from './components/LoginPage';
-import { LandingPage } from './components/LandingPage';
-import { Header } from './components/Header';
-import { MetricsOverview } from './components/MetricsOverview';
-import { LoansTable } from './components/LoansTable';
-import { EMISchedulesGrid } from './components/EMISchedulesGrid';
-import { ExpenseTracker } from './components/ExpenseTracker';
-import { InsurancePoliciesSection } from './components/InsurancePoliciesSection';
-import { AnalyticsSection } from './components/AnalyticsSection';
-import { AddLiabilityModal } from './components/AddLiabilityModal';
-import { EditLiabilityModal } from './components/EditLiabilityModal';
-import { ConvertToEmiModal } from './components/ConvertToEmiModal';
-import { AddExpenseModal } from './components/AddExpenseModal';
-import { ExportImportModal } from './components/ExportImportModal';
-import type { Liability } from './types/finance';
-import { 
-  Layers, 
-  BarChart3, 
-  Receipt, 
-  ShieldCheck,
-  Shield,
-  CalendarClock,
-  Sparkles,
-  Plus
-} from 'lucide-react';
+import { ThemeProvider } from './context/ThemeContext';
+import { ToastProvider } from './context/ToastContext';
+import { DialogContext, type Dialog } from './context/DialogContext';
+import { navigate, useRoute } from './lib/router';
+import { AppShell } from './components/layout/AppShell';
+import { Button } from './components/ui';
+import { LiabilityForm } from './components/forms/LiabilityForm';
+import { ConvertToEmiForm } from './components/forms/ConvertToEmiForm';
+import { ExpenseForm } from './components/forms/ExpenseForm';
+import { PolicyForm } from './components/forms/PolicyForm';
+import { MemberForm } from './components/forms/MemberForm';
+import { AuthPage } from './pages/AuthPage';
+import { LandingPage } from './pages/LandingPage';
+import { OverviewPage } from './pages/OverviewPage';
+import { LiabilitiesPage } from './pages/LiabilitiesPage';
+import { EmiSchedulesPage } from './pages/EmiSchedulesPage';
+import { ExpensesPage } from './pages/ExpensesPage';
+import { InsurancePage } from './pages/InsurancePage';
+import { HouseholdPage } from './pages/HouseholdPage';
+import { SettingsPage } from './pages/SettingsPage';
 
-const DashboardContent: React.FC<{ onViewLanding?: () => void }> = ({ onViewLanding }) => {
-  const { filteredLiabilities, loadDemoData } = useFinance();
-  const { currentUser } = useAuth();
+// Recharts is the heaviest dependency — only load it when Analytics is opened
+const AnalyticsPage = lazy(() => import('./pages/AnalyticsPage'));
 
-  // Modal states
-  const [isAddLiabilityOpen, setIsAddLiabilityOpen] = useState(false);
-  const [isAddExpenseOpen, setIsAddExpenseOpen] = useState(false);
-  const [isExportImportOpen, setIsExportImportOpen] = useState(false);
-  const [selectedLiabilityForEmi, setSelectedLiabilityForEmi] = useState<Liability | null>(null);
-  const [selectedLiabilityForEdit, setSelectedLiabilityForEdit] = useState<Liability | null>(null);
-
-  // Active view tab
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'schedules' | 'expenses' | 'insurance' | 'analytics'>('dashboard');
-
-  const scrollToSchedule = useCallback((liabilityId: string) => {
-    setActiveTab('schedules');
-    requestAnimationFrame(() => {
-      setTimeout(() => {
-        const element = document.getElementById(`schedule-${liabilityId}`);
-        if (element) {
-          element.scrollIntoView({ behavior: 'smooth', block: 'center' });
-          element.classList.add('ring-2', 'ring-blue-500/60', 'ring-offset-2', 'ring-offset-[#080B11]');
-          setTimeout(() => {
-            element.classList.remove('ring-2', 'ring-blue-500/60', 'ring-offset-2', 'ring-offset-[#080B11]');
-          }, 2000);
-        }
-      }, 50);
-    });
-  }, []);
-
+export default function App() {
   return (
-    <div className="min-h-screen bg-[#080B11] text-slate-100 flex flex-col font-sans selection:bg-blue-500 selection:text-white">
-      {/* Navigation Header */}
-      <Header
-        onOpenAddLiability={() => setIsAddLiabilityOpen(true)}
-        onOpenAddExpense={() => setIsAddExpenseOpen(true)}
-        onOpenExportImport={() => setIsExportImportOpen(true)}
-        onViewLanding={onViewLanding}
-      />
-
-      {/* Main Container */}
-      <main className="flex-1 max-w-7xl w-full mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-6 space-y-4 sm:space-y-6">
-        
-        {/* Clean Onboarding Prompt for Fresh Accounts */}
-        {filteredLiabilities.length === 0 && (
-          <div className="rounded-2xl p-4 sm:p-5 bg-gradient-to-r from-blue-950/40 via-[#0D1222] to-emerald-950/30 border border-blue-500/25 shadow-xl flex flex-col sm:flex-row sm:items-center justify-between gap-4 animate-fadeIn">
-            <div className="space-y-1">
-              <div className="flex items-center gap-2">
-                <Sparkles className="w-4 h-4 text-emerald-400" />
-                <h3 className="text-sm sm:text-base font-bold text-white">
-                  Welcome to Tenura, {currentUser?.name || 'User'}!
-                </h3>
-              </div>
-              <p className="text-xs text-slate-300 max-w-xl">
-                Your portfolio is currently clean with zero outstanding liabilities. Add your credit cards, loans, or EMIs to start building your ledger.
-              </p>
-            </div>
-            <div className="flex items-center gap-2.5 flex-wrap flex-shrink-0">
-              <button
-                onClick={() => setIsAddLiabilityOpen(true)}
-                className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-semibold shadow-md shadow-rose-600/30 flex items-center gap-1.5 transition-all"
-              >
-                <Plus className="w-3.5 h-3.5" />
-                <span>Add First Liability</span>
-              </button>
-              <button
-                onClick={loadDemoData}
-                className="px-3.5 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-blue-300 border border-blue-500/30 text-xs font-medium transition-all"
-              >
-                Load Sample Data
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* Top Red / Green / Blue Metric Cards */}
-        <MetricsOverview />
-
-        {/* View Navigation Switcher */}
-        <div className="flex items-center justify-between border-b border-white/[0.06] pb-2.5 sm:pb-3 gap-3">
-          <div className="flex items-center overflow-x-auto no-scrollbar -mx-1 px-1 py-0.5">
-            <div className="flex items-center gap-1 sm:gap-1.5 bg-[#0D121F]/90 p-1 rounded-xl border border-white/[0.06] text-xs flex-shrink-0">
-              
-              {/* Tab 1: Liabilities & Cards (Red theme) */}
-              <button
-                onClick={() => setActiveTab('dashboard')}
-                className={`flex items-center gap-1.5 sm:gap-2 px-3 sm:px-3.5 py-1.5 sm:py-2 rounded-lg font-semibold transition-all whitespace-nowrap ${
-                  activeTab === 'dashboard'
-                    ? 'bg-rose-600 text-white shadow-sm shadow-rose-600/30'
-                    : 'text-slate-400 hover:text-slate-200 hover:bg-white/[0.04]'
-                }`}
-              >
-                <Layers className="w-3.5 h-3.5" />
-                <span>Liabilities & Cards</span>
-              </button>
-
-              {/* Tab 2: EMI Schedules (Blue theme) */}
-              <button
-                onClick={() => setActiveTab('schedules')}
-                className={`flex items-center gap-1.5 sm:gap-2 px-3 sm:px-3.5 py-1.5 sm:py-2 rounded-lg font-semibold transition-all whitespace-nowrap ${
-                  activeTab === 'schedules'
-                    ? 'bg-blue-600 text-white shadow-sm shadow-blue-600/30'
-                    : 'text-slate-400 hover:text-slate-200 hover:bg-white/[0.04]'
-                }`}
-              >
-                <CalendarClock className="w-3.5 h-3.5" />
-                <span>EMI Schedules</span>
-              </button>
-
-              {/* Tab 3: Daily Expenses */}
-              <button
-                onClick={() => setActiveTab('expenses')}
-                className={`flex items-center gap-1.5 sm:gap-2 px-3 sm:px-3.5 py-1.5 sm:py-2 rounded-lg font-semibold transition-all whitespace-nowrap ${
-                  activeTab === 'expenses'
-                    ? 'bg-indigo-600 text-white shadow-sm shadow-indigo-600/30'
-                    : 'text-slate-400 hover:text-slate-200 hover:bg-white/[0.04]'
-                }`}
-              >
-                <Receipt className="w-3.5 h-3.5" />
-                <span>Expenses</span>
-              </button>
-
-              {/* Tab 4: Insurance & LIC Policies (Green theme) */}
-              <button
-                onClick={() => setActiveTab('insurance')}
-                className={`flex items-center gap-1.5 sm:gap-2 px-3 sm:px-3.5 py-1.5 sm:py-2 rounded-lg font-semibold transition-all whitespace-nowrap ${
-                  activeTab === 'insurance'
-                    ? 'bg-emerald-600 text-white shadow-sm shadow-emerald-600/30'
-                    : 'text-slate-400 hover:text-slate-200 hover:bg-white/[0.04]'
-                }`}
-              >
-                <Shield className="w-3.5 h-3.5" />
-                <span>Insurance & LIC</span>
-              </button>
-
-              {/* Tab 5: Analytics */}
-              <button
-                onClick={() => setActiveTab('analytics')}
-                className={`flex items-center gap-1.5 sm:gap-2 px-3 sm:px-3.5 py-1.5 sm:py-2 rounded-lg font-semibold transition-all whitespace-nowrap ${
-                  activeTab === 'analytics'
-                    ? 'bg-slate-700 text-white shadow-sm'
-                    : 'text-slate-400 hover:text-slate-200 hover:bg-white/[0.04]'
-                }`}
-              >
-                <BarChart3 className="w-3.5 h-3.5" />
-                <span>Analytics</span>
-              </button>
-
-            </div>
-          </div>
-
-          <div className="hidden sm:flex items-center gap-2 text-xs text-slate-400 flex-shrink-0">
-            <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-              <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
-              <span>Encrypted Ledger</span>
-            </span>
-          </div>
-        </div>
-
-        {/* Tab Views */}
-        {activeTab === 'dashboard' && (
-          <div className="space-y-5 animate-fadeIn">
-            <LoansTable
-              onOpenAddLiability={() => setIsAddLiabilityOpen(true)}
-              onOpenConvertToEmi={(liab) => setSelectedLiabilityForEmi(liab)}
-              onOpenEditLiability={(liab) => setSelectedLiabilityForEdit(liab)}
-              onScrollToSchedule={scrollToSchedule}
-            />
-          </div>
-        )}
-
-        {activeTab === 'schedules' && (
-          <div className="animate-fadeIn">
-            <EMISchedulesGrid />
-          </div>
-        )}
-
-        {activeTab === 'expenses' && (
-          <div className="animate-fadeIn">
-            <ExpenseTracker onOpenAddExpense={() => setIsAddExpenseOpen(true)} />
-          </div>
-        )}
-
-        {activeTab === 'insurance' && (
-          <div className="animate-fadeIn">
-            <InsurancePoliciesSection />
-          </div>
-        )}
-
-        {activeTab === 'analytics' && (
-          <div className="animate-fadeIn">
-            <AnalyticsSection />
-          </div>
-        )}
-
-      </main>
-
-      {/* Footer */}
-      <footer className="border-t border-white/[0.06] bg-[#090D16] py-4 sm:py-5 text-center text-xs text-slate-400 mt-6">
-        <div className="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-2">
-          <div className="flex items-center gap-2">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
-            <span className="text-slate-400 text-[11px] sm:text-xs">Tenura — Sovereign Financial Control & Amortization Manager</span>
-          </div>
-          <p className="text-slate-500 text-[10px] sm:text-[11px]">
-            Private & Encrypted Financial Management © 2026
-          </p>
-        </div>
-      </footer>
-
-      {/* Modals */}
-      <AddLiabilityModal
-        isOpen={isAddLiabilityOpen}
-        onClose={() => setIsAddLiabilityOpen(false)}
-      />
-
-      <EditLiabilityModal
-        isOpen={!!selectedLiabilityForEdit}
-        liability={selectedLiabilityForEdit}
-        onClose={() => setSelectedLiabilityForEdit(null)}
-      />
-
-      <ConvertToEmiModal
-        isOpen={!!selectedLiabilityForEmi}
-        liability={selectedLiabilityForEmi}
-        onClose={() => setSelectedLiabilityForEmi(null)}
-      />
-
-      <AddExpenseModal
-        isOpen={isAddExpenseOpen}
-        onClose={() => setIsAddExpenseOpen(false)}
-      />
-
-      <ExportImportModal
-        isOpen={isExportImportOpen}
-        onClose={() => setIsExportImportOpen(false)}
-      />
-    </div>
-  );
-};
-
-const AppRoot: React.FC = () => {
-  const { currentUser, isLoading } = useAuth();
-  const [unauthView, setUnauthView] = useState<'landing' | 'signin' | 'signup'>('landing');
-  const [showLandingExplicit, setShowLandingExplicit] = useState<boolean>(() => {
-    return window.location.hash === '#landing' || window.location.search.includes('landing');
-  });
-
-  useEffect(() => {
-    const handleHash = () => {
-      if (window.location.hash === '#landing' || window.location.search.includes('landing')) {
-        setShowLandingExplicit(true);
-      }
-    };
-    window.addEventListener('hashchange', handleHash);
-    return () => window.removeEventListener('hashchange', handleHash);
-  }, []);
-
-  if (isLoading) {
-    return (
-      <div className="min-h-screen bg-[#080B11] flex items-center justify-center text-slate-400 text-xs">
-        <div className="flex items-center gap-2">
-          <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
-          <span>Loading your vault...</span>
-        </div>
-      </div>
-    );
-  }
-
-  // Explicit Landing Page view (e.g. clicked "Landing Page" from header or visited #landing)
-  if (showLandingExplicit) {
-    return (
-      <LandingPage
-        currentUser={currentUser}
-        onOpenDashboard={() => {
-          setShowLandingExplicit(false);
-          if (window.location.hash === '#landing') {
-            window.history.pushState(null, '', window.location.pathname);
-          }
-        }}
-        onGetStarted={() => {
-          setShowLandingExplicit(false);
-          setUnauthView('signup');
-        }}
-        onSignIn={() => {
-          setShowLandingExplicit(false);
-          setUnauthView('signin');
-        }}
-      />
-    );
-  }
-
-  if (!currentUser) {
-    if (unauthView === 'landing') {
-      return (
-        <LandingPage 
-          currentUser={null}
-          onGetStarted={() => setUnauthView('signup')} 
-          onSignIn={() => setUnauthView('signin')} 
-        />
-      );
-    }
-    return (
-      <LoginPage 
-        initialMode={unauthView === 'signup' ? 'signup' : 'signin'} 
-        onBackToLanding={() => setUnauthView('landing')} 
-      />
-    );
-  }
-
-  return (
-    <FinanceProvider>
-      <DashboardContent onViewLanding={() => setShowLandingExplicit(true)} />
-    </FinanceProvider>
-  );
-};
-
-export function App() {
-  return (
-    <AuthProvider>
-      <AppRoot />
-    </AuthProvider>
+    <ThemeProvider>
+      <ToastProvider>
+        <AuthProvider>
+          <Router />
+        </AuthProvider>
+      </ToastProvider>
+    </ThemeProvider>
   );
 }
 
-export default App;
+function Router() {
+  const { user, loading } = useAuth();
+  const { path, params } = useRoute();
+  const inApp = path === '/app' || path.startsWith('/app/');
+
+  // Route guards
+  useEffect(() => {
+    if (loading) return;
+    if (inApp && !user) navigate('/login', { replace: true });
+    if (user && (path === '/login' || path === '/signup')) navigate('/app', { replace: true });
+  }, [loading, user, inApp, path]);
+
+  if (loading) return <FullScreenSpinner />;
+
+  if (!inApp) {
+    if (path === '/login' || path === '/signup') return user ? <FullScreenSpinner /> : <AuthPage key={path} mode={path === '/signup' ? 'signup' : 'login'} />;
+    return <LandingPage />;
+  }
+  if (!user) return <FullScreenSpinner />;
+
+  return (
+    // Keyed by user: signing out or switching accounts discards all in-memory data
+    <FinanceProvider key={user.id} user={user}>
+      <Workspace path={path} params={params} />
+    </FinanceProvider>
+  );
+}
+
+function Workspace({ path, params }: { path: string; params: URLSearchParams }) {
+  const { status, retry } = useFinance();
+  const [dialog, setDialog] = useState<Dialog | null>(null);
+  const close = useCallback(() => setDialog(null), []);
+
+  let page: ReactNode;
+  switch (path) {
+    case '/app':
+      page = <OverviewPage />;
+      break;
+    case '/app/liabilities':
+      page = <LiabilitiesPage />;
+      break;
+    case '/app/emis':
+      page = <EmiSchedulesPage key={params.get('plan') ?? ''} focusId={params.get('plan') ?? undefined} />;
+      break;
+    case '/app/expenses':
+      page = <ExpensesPage />;
+      break;
+    case '/app/insurance':
+      page = <InsurancePage />;
+      break;
+    case '/app/analytics':
+      page = (
+        <Suspense fallback={<InlineSpinner />}>
+          <AnalyticsPage />
+        </Suspense>
+      );
+      break;
+    case '/app/household':
+      page = <HouseholdPage />;
+      break;
+    case '/app/settings':
+      page = <SettingsPage />;
+      break;
+    default:
+      page = <NotFound />;
+  }
+
+  return (
+    <DialogContext.Provider value={setDialog}>
+      <AppShell path={path}>
+        {status === 'loading' && <InlineSpinner />}
+        {status === 'error' && (
+          <div className="flex flex-col items-center py-24 text-center">
+            <AlertTriangle className="h-6 w-6 text-negative" />
+            <h1 className="mt-3 text-lg font-semibold text-ink">Couldn’t load your data</h1>
+            <p className="mt-1 max-w-sm text-sm text-ink-muted">Check your connection and try again. Nothing has been lost.</p>
+            <Button className="mt-5" onClick={retry}>Try again</Button>
+          </div>
+        )}
+        {status === 'ready' && page}
+      </AppShell>
+
+      {status === 'ready' && dialog?.type === 'liability' && <LiabilityForm key={dialog.liability?.id ?? 'new'} liability={dialog.liability} onClose={close} />}
+      {status === 'ready' && dialog?.type === 'convert' && <ConvertToEmiForm liability={dialog.liability} onClose={close} />}
+      {status === 'ready' && dialog?.type === 'expense' && <ExpenseForm key={dialog.expense?.id ?? 'new'} expense={dialog.expense} onClose={close} />}
+      {status === 'ready' && dialog?.type === 'policy' && <PolicyForm key={dialog.policy?.id ?? 'new'} policy={dialog.policy} onClose={close} />}
+      {status === 'ready' && dialog?.type === 'member' && <MemberForm key={dialog.member?.id ?? 'new'} member={dialog.member} onClose={close} />}
+    </DialogContext.Provider>
+  );
+}
+
+function NotFound() {
+  return (
+    <div className="py-24 text-center">
+      <h1 className="text-lg font-semibold text-ink">Page not found</h1>
+      <a href="#/app" className="mt-2 inline-block text-sm text-accent hover:underline">Back to overview</a>
+    </div>
+  );
+}
+
+function FullScreenSpinner() {
+  return (
+    <div className="flex min-h-dvh items-center justify-center" role="status" aria-label="Loading">
+      <Loader2 className="h-5 w-5 animate-spin text-ink-faint" />
+    </div>
+  );
+}
+
+function InlineSpinner() {
+  return (
+    <div className="flex justify-center py-24" role="status" aria-label="Loading">
+      <Loader2 className="h-5 w-5 animate-spin text-ink-faint" />
+    </div>
+  );
+}

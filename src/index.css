@@ -1,112 +1,153 @@
-@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
-
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
+/* ---------------------------------------------------------------------------
+   Design tokens. Colours are RGB channels so Tailwind can apply opacity.
+   Light is the default; dark follows the OS unless the user picks a theme.
+--------------------------------------------------------------------------- */
 :root {
-  font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  color-scheme: light;
+  --canvas: 246 246 243;
+  --surface: 255 255 255;
+  --surface-raised: 255 255 255;
+  --surface-sunken: 240 239 235;
+  --line: 228 227 221;
+  --line-strong: 208 207 199;
+  --ink: 22 22 20;
+  --ink-muted: 88 87 82;
+  --ink-faint: 128 127 120;
+  --ink-inverse: 255 255 255;
+  --accent: 37 108 205;
+  --accent-soft: 230 239 251;
+  --positive: 18 128 60;
+  --positive-soft: 228 244 233;
+  --negative: 200 50 50;
+  --negative-soft: 252 234 233;
+  --warning: 168 108 0;
+  --warning-soft: 253 243 220;
+
+  /* chart series (full colours, used directly as SVG fills) */
+  --chart-1: #2a78d6;
+  --chart-2: #eb6834;
+  --chart-3: #1baf7a;
+  --chart-4: #eda100;
+  --chart-5: #e87ba4;
+  --chart-6: #008300;
+  --chart-7: #4a3aa7;
+  --chart-8: #e34948;
+  --chart-grid: #e8e7e1;
+  --chart-axis: #898781;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    color-scheme: dark;
+    --canvas: 14 14 13;
+    --surface: 24 24 22;
+    --surface-raised: 32 32 30;
+    --surface-sunken: 19 19 18;
+    --line: 42 42 39;
+    --line-strong: 62 62 57;
+    --ink: 243 243 239;
+    --ink-muted: 186 185 176;
+    --ink-faint: 133 132 125;
+    --ink-inverse: 20 20 18;
+    --accent: 84 152 236;
+    --accent-soft: 26 40 60;
+    --positive: 62 184 104;
+    --positive-soft: 20 44 29;
+    --negative: 240 110 104;
+    --negative-soft: 56 26 25;
+    --warning: 230 172 64;
+    --warning-soft: 54 41 16;
+    --chart-1: #3987e5;
+    --chart-2: #d95926;
+    --chart-3: #199e70;
+    --chart-4: #c98500;
+    --chart-5: #d55181;
+    --chart-6: #008300;
+    --chart-7: #9085e9;
+    --chart-8: #e66767;
+    --chart-grid: #2c2c2a;
+    --chart-axis: #898781;
+  }
+}
+
+:root[data-theme='dark'] {
   color-scheme: dark;
-  scroll-behavior: smooth;
+  --canvas: 14 14 13;
+  --surface: 24 24 22;
+  --surface-raised: 32 32 30;
+  --surface-sunken: 19 19 18;
+  --line: 42 42 39;
+  --line-strong: 62 62 57;
+  --ink: 243 243 239;
+  --ink-muted: 186 185 176;
+  --ink-faint: 133 132 125;
+  --ink-inverse: 20 20 18;
+  --accent: 84 152 236;
+  --accent-soft: 26 40 60;
+  --positive: 62 184 104;
+  --positive-soft: 20 44 29;
+  --negative: 240 110 104;
+  --negative-soft: 56 26 25;
+  --warning: 230 172 64;
+  --warning-soft: 54 41 16;
+  --chart-1: #3987e5;
+  --chart-2: #d95926;
+  --chart-3: #199e70;
+  --chart-4: #c98500;
+  --chart-5: #d55181;
+  --chart-6: #008300;
+  --chart-7: #9085e9;
+  --chart-8: #e66767;
+  --chart-grid: #2c2c2a;
+  --chart-axis: #898781;
 }
 
-body {
-  margin: 0;
-  min-height: 100vh;
-  background-color: #07090E;
-  background-image: 
-    radial-gradient(at 0% 0%, rgba(59, 130, 246, 0.07) 0px, transparent 40%),
-    radial-gradient(at 100% 0%, rgba(16, 185, 129, 0.05) 0px, transparent 40%),
-    radial-gradient(at 50% 100%, rgba(244, 63, 94, 0.04) 0px, transparent 50%);
-  background-attachment: fixed;
-  color: #E2E8F0;
-  overflow-x: hidden;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-  -webkit-tap-highlight-color: transparent;
-}
-
-/* Performant scrollbars */
-::-webkit-scrollbar {
-  width: 5px;
-  height: 5px;
-}
-
-::-webkit-scrollbar-track {
-  background: rgba(7, 9, 14, 0.9);
-}
-
-::-webkit-scrollbar-thumb {
-  background: rgba(148, 163, 184, 0.2);
-  border-radius: 9999px;
-}
-
-::-webkit-scrollbar-thumb:hover {
-  background: rgba(148, 163, 184, 0.4);
-}
-
-.no-scrollbar::-webkit-scrollbar {
-  display: none;
-}
-.no-scrollbar {
-  -ms-overflow-style: none;
-  scrollbar-width: none;
-}
-
-.font-tabular {
-  font-family: 'JetBrains Mono', monospace;
-  font-feature-settings: 'tnum' on, 'lnum' on, 'zero' on;
-}
-
-/* High-craft glass tokens */
-.glass-panel {
-  background: rgba(13, 17, 26, 0.85);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  box-shadow: 0 4px 24px -2px rgba(0, 0, 0, 0.45);
-}
-
-.glass-panel-hover {
-  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-.glass-panel-hover:hover {
-  border-color: rgba(255, 255, 255, 0.16);
-  transform: translateY(-1px);
-}
-
-.glow-card-green {
-  background: linear-gradient(135deg, rgba(6, 78, 59, 0.25) 0%, rgba(13, 17, 26, 0.9) 100%);
-  border: 1px solid rgba(16, 185, 129, 0.28);
-}
-
-.glow-card-red {
-  background: linear-gradient(135deg, rgba(76, 5, 25, 0.25) 0%, rgba(13, 17, 26, 0.9) 100%);
-  border: 1px solid rgba(244, 63, 94, 0.28);
-}
-
-.glow-card-blue {
-  background: linear-gradient(135deg, rgba(30, 58, 138, 0.25) 0%, rgba(13, 17, 26, 0.9) 100%);
-  border: 1px solid rgba(59, 130, 246, 0.28);
-}
-
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-    transform: translateY(6px);
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+    -webkit-tap-highlight-color: transparent;
   }
-  to {
-    opacity: 1;
-    transform: translateY(0);
+  body {
+    @apply bg-canvas font-sans text-ink antialiased;
+    font-feature-settings: 'ss01', 'cv11';
+  }
+  ::selection {
+    @apply bg-accent/20;
+  }
+  :focus-visible {
+    @apply outline-none ring-2 ring-accent/60 ring-offset-2 ring-offset-canvas;
+  }
+  input[type='number']::-webkit-inner-spin-button,
+  input[type='number']::-webkit-outer-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+  input[type='number'] {
+    -moz-appearance: textfield;
   }
 }
 
-.animate-fadeIn {
-  animation: fadeIn 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+@layer utilities {
+  .num {
+    font-variant-numeric: tabular-nums;
+  }
+  .scrollbar-none {
+    scrollbar-width: none;
+  }
+  .scrollbar-none::-webkit-scrollbar {
+    display: none;
+  }
 }
 
-.smooth-scroll {
-  -webkit-overflow-scrolling: touch;
-  scroll-behavior: smooth;
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
 }
