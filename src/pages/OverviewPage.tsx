@@ -1,30 +1,55 @@
-import { useMemo } from 'react';
-import { ArrowRight, CreditCard, Receipt, ShieldCheck, UserPlus } from 'lucide-react';
+import { useMemo, type ReactNode } from 'react';
+import { ArrowRight, CreditCard, Plus, Receipt, ShieldCheck, TrendingDown, UserPlus, Wallet } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useFinance } from '../context/FinanceContext';
 import { useOpenDialog } from '../context/DialogContext';
-import { planProgress, upcomingPayments } from '../lib/finance/calc';
-import { formatDate, formatMonthKey, toISODate } from '../lib/finance/dates';
+import {
+  creditTotals,
+  debtMix,
+  isOpenCard,
+  monthEmiProgress,
+  planProgress,
+  spendingByCategory,
+  upcomingPayments,
+  utilizationTone,
+  type DebtGroup,
+} from '../lib/finance/calc';
+import { formatDate, formatMonthKey, toISODate, toMonthKey } from '../lib/finance/dates';
+import type { ExpenseCategory } from '../lib/finance/types';
 import { CATEGORY_LABEL, formatINR, formatINRCompact, pluralize } from '../lib/format';
 import { href } from '../lib/router';
 import { DueList } from '../components/DueList';
-import { StatTile } from '../components/StatTile';
-import { Button, Card, CardHeader, MemberAvatar, Progress } from '../components/ui';
+import { CardTile } from '../components/CardsGallery';
+import { Button, Card, CardHeader, MemberAvatar, Progress, cx } from '../components/ui';
 
 function greeting(d = new Date()) {
   const h = d.getHours();
   return h < 12 ? 'Good morning' : h < 17 ? 'Good afternoon' : 'Good evening';
 }
 
+const MIX: { key: DebtGroup; label: string; color: string }[] = [
+  { key: 'cards', label: 'Credit cards', color: 'var(--chart-1)' },
+  { key: 'loans', label: 'Loans', color: 'var(--chart-2)' },
+  { key: 'emis', label: 'EMIs', color: 'var(--chart-3)' },
+  { key: 'bnpl', label: 'Pay later', color: 'var(--chart-4)' },
+];
+
 export function OverviewPage() {
   const { user } = useAuth();
   const { data, scoped, summary, scope, memberMap, installmentsByLiability } = useFinance();
   const openDialog = useOpenDialog();
-  const today = toISODate(new Date());
+  const now = useMemo(() => new Date(), []);
+  const today = toISODate(now);
+  const thisMonth = toMonthKey(now);
 
   const due = useMemo(() => upcomingPayments(scoped, today, 30), [scoped, today]);
   const dueTotal = due.reduce((s, d) => s + d.amount, 0);
   const overdue = due.filter((d) => d.days < 0).length;
+  const mix = useMemo(() => debtMix(scoped), [scoped]);
+  const month = useMemo(() => monthEmiProgress(scoped, thisMonth), [scoped, thisMonth]);
+  const credit = useMemo(() => creditTotals(scoped), [scoped]);
+  const cards = useMemo(() => scoped.liabilities.filter(isOpenCard).sort((a, b) => b.balance - a.balance), [scoped.liabilities]);
+  const categories = useMemo(() => spendingByCategory(scoped.expenses, thisMonth).slice(0, 5), [scoped.expenses, thisMonth]);
 
   const plans = useMemo(
     () =>
@@ -32,172 +57,289 @@ export function OverviewPage() {
         .filter((l) => l.status !== 'closed' && (installmentsByLiability.get(l.id)?.length ?? 0) > 0)
         .map((l) => ({ l, p: planProgress(installmentsByLiability.get(l.id)!) }))
         .sort((a, b) => b.p.remainingAmount - a.p.remainingAmount)
-        .slice(0, 5),
+        .slice(0, 4),
     [scoped.liabilities, installmentsByLiability],
   );
 
-  const recent = useMemo(() => [...scoped.expenses].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 5), [scoped.expenses]);
+  const recent = useMemo(() => [...scoped.expenses].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 6), [scoped.expenses]);
   const isEmpty = data.liabilities.length === 0 && data.expenses.length === 0 && data.policies.length === 0;
   const scopeName = scope === 'all' ? 'your household' : memberMap.get(scope)?.name;
   const firstName = user?.name.split(' ')[0];
   const budgetPct = summary.monthlyBudget > 0 ? (summary.spentThisMonth / summary.monthlyBudget) * 100 : 0;
-  const totalPlanned = summary.repaid + summary.outstanding;
+  const repaidPct = summary.repaid + summary.outstanding > 0 ? (summary.repaid / (summary.repaid + summary.outstanding)) * 100 : 0;
+  const mixTotal = MIX.reduce((s, m) => s + mix[m.key], 0);
+  const showMember = scope === 'all' && data.members.length > 1;
 
   if (isEmpty) return <Onboarding name={firstName} />;
 
   return (
-    <div className="animate-fade-in">
-      <div className="mb-8">
-        <p className="text-sm text-ink-muted">{formatDate(today)}</p>
-        <h1 className="mt-1 text-2xl font-semibold tracking-tight text-ink sm:text-[28px]">
-          {greeting()}, {firstName}
-        </h1>
-        <p className="mt-1 text-sm text-ink-muted">
-          {due.length > 0 ? (
-            <>
-              {pluralize(due.length, 'payment')} worth <span className="num font-medium text-ink">{formatINR(dueTotal)}</span> due in the next 30 days for {scopeName}
-              {overdue > 0 && <span className="text-negative"> — {overdue} overdue</span>}.
-            </>
-          ) : (
-            <>Nothing due in the next 30 days for {scopeName}. Nice.</>
-          )}
-        </p>
+    <div className="animate-fade-in space-y-6">
+      {/* Greeting */}
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <p className="text-sm text-ink-muted">{formatDate(today)}</p>
+          <h1 className="mt-1 text-2xl font-semibold tracking-tight text-ink sm:text-[28px]">
+            {greeting()}, {firstName}
+          </h1>
+          <p className="mt-1 text-sm text-ink-muted">
+            {due.length > 0 ? (
+              <>
+                {pluralize(due.length, 'payment')} worth <span className="num font-medium text-ink">{formatINR(dueTotal)}</span> due in the next 30 days for {scopeName}
+                {overdue > 0 && <span className="font-medium text-negative"> · {overdue} overdue</span>}
+              </>
+            ) : (
+              <>Nothing due in the next 30 days for {scopeName}. Nice.</>
+            )}
+          </p>
+        </div>
+        <div className="flex gap-2">
+          <Button size="sm" icon={<Receipt className="h-4 w-4" />} onClick={() => openDialog({ type: 'expense' })}>Expense</Button>
+          <Button size="sm" variant="primary" icon={<Plus className="h-4 w-4" />} onClick={() => openDialog({ type: 'liability' })}>Loan or card</Button>
+        </div>
       </div>
 
-      <section aria-label="Summary" className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <StatTile
-          label="Outstanding debt"
-          tone="negative"
-          value={formatINR(summary.outstanding)}
-          footer={
-            <span>
-              {formatINRCompact(summary.creditCardOutstanding)} on cards · {formatINRCompact(summary.loanOutstanding)} in loans & EMIs
-            </span>
-          }
-        />
-        <StatTile
-          label="Monthly commitments"
-          tone="accent"
-          value={formatINR(summary.monthlyEmi + summary.monthlyPremiums)}
-          footer={
-            <span>
-              {formatINRCompact(summary.monthlyEmi)} EMIs · {formatINRCompact(summary.monthlyPremiums)} premiums / mo
-            </span>
-          }
-        />
-        <StatTile
-          label="Repaid so far"
-          tone="positive"
-          value={formatINR(summary.repaid)}
-          footer={
-            <div className="space-y-2">
-              <Progress value={totalPlanned ? (summary.repaid / totalPlanned) * 100 : 0} tone="positive" label="Share of debt repaid" />
-              <span>{summary.debtFreeMonth ? `EMIs end ${formatMonthKey(summary.debtFreeMonth)}` : `${pluralize(summary.closedCount, 'account')} paid off`}</span>
-            </div>
-          }
-        />
-        <StatTile
-          label="Spent this month"
-          value={formatINR(summary.spentThisMonth)}
-          footer={
-            summary.monthlyBudget > 0 ? (
-              <div className="space-y-2">
-                <Progress value={budgetPct} tone={budgetPct > 100 ? 'negative' : budgetPct > 85 ? 'warning' : 'accent'} label="Budget used" />
-                <span>
-                  {budgetPct > 100
-                    ? `${formatINR(summary.spentThisMonth - summary.monthlyBudget)} over the ${formatINRCompact(summary.monthlyBudget)} budget`
-                    : `${formatINR(summary.monthlyBudget - summary.spentThisMonth)} left of ${formatINRCompact(summary.monthlyBudget)}`}
+      {/* Hero: what you owe + this month */}
+      <Card className="relative overflow-hidden">
+        <div className="pointer-events-none absolute -right-24 -top-32 h-80 w-80 rounded-full bg-accent/10 blur-3xl" aria-hidden />
+        <div className="pointer-events-none absolute -bottom-40 left-1/4 h-80 w-80 rounded-full bg-positive/10 blur-3xl" aria-hidden />
+        <div className="relative grid lg:grid-cols-[1.5fr_1fr]">
+          <div className="p-6 sm:p-8">
+            <p className="flex items-center gap-2 text-[13px] font-medium text-ink-muted">
+              <span className="h-2 w-2 rounded-full bg-negative" aria-hidden /> Total outstanding
+            </p>
+            <p className="mt-3 text-4xl font-semibold tracking-tight text-ink sm:text-5xl">
+              <span className="num">{formatINR(summary.outstanding)}</span>
+            </p>
+            <p className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-ink-muted">
+              {summary.debtFreeMonth && (
+                <span className="flex items-center gap-1.5">
+                  <TrendingDown className="h-4 w-4 text-positive" /> EMIs finish by <span className="font-medium text-ink">{formatMonthKey(summary.debtFreeMonth)}</span>
                 </span>
+              )}
+              <span>
+                <span className="num font-medium text-positive">{formatINR(summary.repaid)}</span> repaid ({Math.round(repaidPct)}%)
+              </span>
+            </p>
+
+            {mixTotal > 0 && (
+              <div className="mt-7">
+                <div className="flex h-3 gap-0.5 overflow-hidden rounded-full" role="img" aria-label="Outstanding by type">
+                  {MIX.filter((m) => mix[m.key] > 0).map((m) => (
+                    <div key={m.key} className="h-full transition-[flex-grow] duration-700 first:rounded-l-full last:rounded-r-full" style={{ flexGrow: mix[m.key], background: m.color }} title={`${m.label}: ${formatINR(mix[m.key])}`} />
+                  ))}
+                </div>
+                <ul className="mt-4 grid grid-cols-2 gap-x-6 gap-y-3 sm:grid-cols-4">
+                  {MIX.map((m) => (
+                    <li key={m.key} className={cx(!mix[m.key] && 'opacity-45')}>
+                      <p className="flex items-center gap-1.5 text-xs text-ink-muted">
+                        <span className="h-2 w-2 rounded-sm" style={{ background: m.color }} aria-hidden /> {m.label}
+                      </p>
+                      <p className="num mt-0.5 text-sm font-semibold text-ink">{formatINRCompact(mix[m.key])}</p>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </div>
+
+          <div className="flex flex-col justify-center border-t border-line p-6 sm:p-8 lg:border-l lg:border-t-0">
+            <p className="text-[13px] font-medium text-ink-muted">{formatMonthKey(thisMonth)} EMIs</p>
+            {month.count > 0 ? (
+              <div className="mt-4 flex items-center gap-6">
+                <Ring percent={month.percent} label={`${Math.round(month.percent)}% of this month’s EMIs paid`}>
+                  <span className="num text-xl font-semibold text-ink">{month.paidCount}/{month.count}</span>
+                  <span className="text-[11px] text-ink-faint">paid</span>
+                </Ring>
+                <dl className="flex-1 space-y-2.5 text-sm">
+                  <Row label="Due this month" value={formatINR(month.due)} />
+                  <Row label="Paid" value={formatINR(month.paid)} tone="positive" />
+                  <Row label="Still to pay" value={formatINR(month.due - month.paid)} strong />
+                </dl>
               </div>
             ) : (
-              <a href={href('/app/household')} className="text-accent hover:underline">Set a monthly budget</a>
-            )
-          }
-        />
+              <p className="mt-3 text-sm text-ink-muted">No EMIs fall due this month.</p>
+            )}
+          </div>
+        </div>
+      </Card>
+
+      {/* Stats */}
+      <section aria-label="Summary" className="grid grid-cols-2 gap-4 xl:grid-cols-4">
+        <MiniStat icon={<Wallet className="h-4 w-4" />} tint="accent" label="Monthly commitments" value={formatINR(summary.monthlyEmi + summary.monthlyPremiums)}
+          foot={`${formatINRCompact(summary.monthlyEmi)} EMIs · ${formatINRCompact(summary.monthlyPremiums)} premiums`} />
+        <MiniStat icon={<CreditCard className="h-4 w-4" />} tint="negative" label="Credit used"
+          value={credit.percent !== undefined ? `${Math.round(credit.percent)}%` : formatINR(summary.creditCardOutstanding)}
+          foot={credit.percent !== undefined ? `${formatINRCompact(credit.used)} of ${formatINRCompact(credit.limit)} limit` : 'Add card limits to see usage'}
+          bar={credit.percent !== undefined ? { value: credit.percent, tone: utilizationTone(credit.percent) } : undefined} />
+        <MiniStat icon={<Receipt className="h-4 w-4" />} tint="warning" label="Spent this month" value={formatINR(summary.spentThisMonth)}
+          foot={summary.monthlyBudget > 0 ? (budgetPct > 100 ? `${formatINRCompact(summary.spentThisMonth - summary.monthlyBudget)} over budget` : `${formatINRCompact(summary.monthlyBudget - summary.spentThisMonth)} left of ${formatINRCompact(summary.monthlyBudget)}`) : 'No budget set'}
+          bar={summary.monthlyBudget > 0 ? { value: budgetPct, tone: budgetPct > 100 ? 'negative' : budgetPct > 85 ? 'warning' : 'accent' } : undefined} />
+        <MiniStat icon={<ShieldCheck className="h-4 w-4" />} tint="positive" label="Insurance cover" value={formatINRCompact(summary.sumAssured)}
+          foot={`${pluralize(scoped.policies.filter((p) => p.status === 'active').length, 'active policy', 'active policies')}`} />
       </section>
 
-      <div className="mt-6 grid gap-6 xl:grid-cols-[1.45fr_1fr]">
-        <Card>
+      {/* Coming up + cards & plans */}
+      <div className="grid gap-6 xl:grid-cols-[minmax(0,1.45fr)_minmax(0,1fr)]">
+        <Card className="min-w-0">
           <CardHeader
             title="Coming up"
             description="EMIs, card bills and premiums due in the next 30 days"
             action={due.length > 0 ? <span className="num text-sm font-semibold text-ink">{formatINR(dueTotal)}</span> : undefined}
           />
           <div className="mt-3">
-            <DueList items={due} showMember={scope === 'all' && data.members.length > 1} />
+            <DueList items={due} showMember={showMember} />
           </div>
         </Card>
 
-        <Card>
-          <CardHeader
-            title="EMI plans"
-            description={plans.length ? `${pluralize(summary.activePlanCount, 'active plan')}` : 'No active EMI plans'}
-            action={
-              <a href={href('/app/emis')} className="flex items-center gap-1 text-[13px] font-medium text-accent hover:underline">
-                All <ArrowRight className="h-3.5 w-3.5" />
-              </a>
-            }
-          />
-          <ul className="mt-2 space-y-1 px-2 pb-3">
-            {plans.map(({ l, p }) => (
-              <li key={l.id}>
-                <a href={href(`/app/emis?plan=${l.id}`)} className="block rounded-xl px-3 py-3 hover:bg-surface-sunken">
-                  <div className="flex items-center justify-between gap-3">
-                    <span className="truncate text-sm font-medium text-ink">{l.provider}</span>
-                    <span className="num shrink-0 text-xs text-ink-muted">
-                      {p.paidCount}/{p.totalCount} paid
-                    </span>
+        <div className="min-w-0 space-y-6">
+          {cards.length > 0 && (
+            <Card className="overflow-hidden">
+              <CardHeader title="Credit cards" description={pluralize(cards.length, 'open card')} action={<SeeAll to="/app/liabilities" />} />
+              <div className="mt-4 flex snap-x snap-mandatory scroll-px-5 gap-4 overflow-x-auto px-5 pb-5 scrollbar-none">
+                {cards.slice(0, 6).map((c) => (
+                  <div key={c.id} className="w-[220px] shrink-0 snap-start">
+                    <CardTile card={c} compact />
                   </div>
-                  <Progress value={p.percent} className="mt-2" label={`${l.provider} progress`} />
-                  <div className="mt-1.5 flex justify-between text-xs text-ink-faint">
-                    <span className="num">{formatINR(p.remainingAmount)} left</span>
-                    {p.lastMonth && <span>ends {formatMonthKey(p.lastMonth)}</span>}
-                  </div>
-                </a>
-              </li>
-            ))}
-            {plans.length === 0 && (
-              <li className="px-3 py-6 text-center text-sm text-ink-muted">
-                Add a loan or EMI with a tenure to get a month-by-month schedule.
-              </li>
-            )}
-          </ul>
-        </Card>
+                ))}
+              </div>
+            </Card>
+          )}
+
+          <Card>
+            <CardHeader title="EMI plans" description={plans.length ? pluralize(summary.activePlanCount, 'active plan') : 'No active EMI plans'} action={<SeeAll to="/app/emis" />} />
+            <ul className="mt-2 space-y-1 px-2 pb-3">
+              {plans.map(({ l, p }) => (
+                <li key={l.id}>
+                  <a href={href(`/app/emis?plan=${l.id}`)} className="block rounded-xl px-3 py-3 transition-colors hover:bg-surface-sunken">
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="truncate text-sm font-medium text-ink">{l.provider}</span>
+                      <span className="num shrink-0 text-xs text-ink-muted">{p.paidCount}/{p.totalCount}</span>
+                    </div>
+                    <Progress value={p.percent} className="mt-2" label={`${l.provider} progress`} />
+                    <div className="mt-1.5 flex justify-between text-xs text-ink-faint">
+                      <span className="num">{formatINR(p.remainingAmount)} left</span>
+                      {p.lastMonth && <span>ends {formatMonthKey(p.lastMonth, { short: true })}</span>}
+                    </div>
+                  </a>
+                </li>
+              ))}
+              {plans.length === 0 && <li className="px-3 py-6 text-center text-sm text-ink-muted">Add a loan or EMI with a tenure to get a schedule.</li>}
+            </ul>
+          </Card>
+        </div>
       </div>
 
-      <Card className="mt-6">
-        <CardHeader
-          title="Recent spending"
-          action={
-            <a href={href('/app/expenses')} className="flex items-center gap-1 text-[13px] font-medium text-accent hover:underline">
-              All expenses <ArrowRight className="h-3.5 w-3.5" />
-            </a>
-          }
-        />
+      {/* Spending */}
+      <Card>
+        <CardHeader title="Spending" description={`${formatMonthKey(thisMonth)} so far`} action={<SeeAll to="/app/expenses" label="All expenses" />} />
         {recent.length === 0 ? (
           <div className="px-5 pb-6 pt-3 text-sm text-ink-muted">
-            No expenses yet.{' '}
-            <button onClick={() => openDialog({ type: 'expense' })} className="font-medium text-accent hover:underline">Add one</button>
+            No expenses yet. <button onClick={() => openDialog({ type: 'expense' })} className="font-medium text-accent hover:underline">Add one</button>
           </div>
         ) : (
-          <ul className="mt-2 divide-y divide-line">
-            {recent.map((e) => {
-              const m = memberMap.get(e.memberId);
-              return (
-                <li key={e.id} className="flex items-center gap-3 px-5 py-3">
-                  {m && <MemberAvatar member={m} size="sm" />}
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm text-ink">{e.title}</p>
-                    <p className="text-xs text-ink-faint">{CATEGORY_LABEL[e.category]} · {formatDate(e.date)}</p>
-                  </div>
-                  <span className="num text-sm font-medium text-ink">{formatINR(e.amount)}</span>
-                </li>
-              );
-            })}
-          </ul>
+          <div className="grid md:grid-cols-[1.3fr_1fr]">
+            <ul className="mt-2 divide-y divide-line">
+              {recent.map((e) => {
+                const m = memberMap.get(e.memberId);
+                return (
+                  <li key={e.id} className="flex items-center gap-3 px-5 py-3">
+                    {showMember && m && <MemberAvatar member={m} size="sm" />}
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm text-ink">{e.title}</p>
+                      <p className="text-xs text-ink-faint">{CATEGORY_LABEL[e.category]} · {formatDate(e.date)}</p>
+                    </div>
+                    <span className="num text-sm font-medium text-ink">{formatINR(e.amount)}</span>
+                  </li>
+                );
+              })}
+            </ul>
+            {categories.length > 0 && (
+              <div className="border-t border-line p-5 md:border-l md:border-t-0">
+                <p className="text-xs font-medium uppercase tracking-wide text-ink-faint">Top categories</p>
+                <ul className="mt-4 space-y-3.5">
+                  {categories.map((c, i) => (
+                    <li key={c.category}>
+                      <div className="flex justify-between text-[13px]">
+                        <span className="text-ink-muted">{CATEGORY_LABEL[c.category as ExpenseCategory]}</span>
+                        <span className="num font-medium text-ink">{formatINR(c.amount)}</span>
+                      </div>
+                      <div className="mt-1.5 h-1.5 rounded-full bg-surface-sunken">
+                        <div className="h-1.5 rounded-full transition-[width] duration-700" style={{ width: `${(c.amount / categories[0].amount) * 100}%`, background: `var(--chart-${(i % 8) + 1})` }} />
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </div>
         )}
       </Card>
     </div>
+  );
+}
+
+function SeeAll({ to, label = 'All' }: { to: string; label?: string }) {
+  return (
+    <a href={href(to)} className="flex shrink-0 items-center gap-1 text-[13px] font-medium text-accent hover:underline">
+      {label} <ArrowRight className="h-3.5 w-3.5" />
+    </a>
+  );
+}
+
+function Row({ label, value, tone, strong }: { label: string; value: string; tone?: 'positive'; strong?: boolean }) {
+  return (
+    <div className="flex items-center justify-between gap-3">
+      <dt className="text-ink-muted">{label}</dt>
+      <dd className={cx('num', strong ? 'font-semibold text-ink' : 'font-medium', tone === 'positive' ? 'text-positive' : !strong && 'text-ink')}>{value}</dd>
+    </div>
+  );
+}
+
+/** Circular progress. */
+function Ring({ percent, label, children }: { percent: number; label: string; children: ReactNode }) {
+  const r = 42;
+  const c = 2 * Math.PI * r;
+  const pct = Math.max(0, Math.min(100, percent));
+  return (
+    <div className="relative h-28 w-28 shrink-0" role="img" aria-label={label}>
+      <svg viewBox="0 0 100 100" className="h-full w-full -rotate-90">
+        <circle cx="50" cy="50" r={r} fill="none" stroke="rgb(var(--surface-sunken))" strokeWidth="9" />
+        <circle
+          cx="50" cy="50" r={r} fill="none" stroke="rgb(var(--positive))" strokeWidth="9" strokeLinecap="round"
+          strokeDasharray={c} strokeDashoffset={c * (1 - pct / 100)}
+          className="transition-[stroke-dashoffset] duration-1000 ease-out"
+        />
+      </svg>
+      <div className="absolute inset-0 flex flex-col items-center justify-center">{children}</div>
+    </div>
+  );
+}
+
+const TINT = {
+  accent: 'bg-accent-soft text-accent',
+  negative: 'bg-negative-soft text-negative',
+  warning: 'bg-warning-soft text-warning',
+  positive: 'bg-positive-soft text-positive',
+};
+
+function MiniStat({ icon, tint, label, value, foot, bar }: {
+  icon: ReactNode;
+  tint: keyof typeof TINT;
+  label: string;
+  value: string;
+  foot: string;
+  bar?: { value: number; tone: 'accent' | 'positive' | 'warning' | 'negative' };
+}) {
+  return (
+    <Card className="flex flex-col p-4 transition-shadow hover:shadow-lg sm:p-5">
+      <div className="flex items-center gap-2.5">
+        <span className={cx('flex h-8 w-8 items-center justify-center rounded-lg', TINT[tint])}>{icon}</span>
+        <p className="text-[13px] font-medium text-ink-muted">{label}</p>
+      </div>
+      <p className="num mt-3 text-xl font-semibold tracking-tight text-ink sm:text-2xl">{value}</p>
+      {bar && <Progress value={bar.value} tone={bar.tone} className="mt-2.5" label={label} />}
+      <p className="mt-2 text-xs text-ink-muted">{foot}</p>
+    </Card>
   );
 }
 

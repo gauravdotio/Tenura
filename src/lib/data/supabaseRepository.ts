@@ -37,6 +37,8 @@ const liabilityFromRow = (r: Row): Liability => ({
   startMonth: s(r.start_month),
   dueDay: n(r.due_day),
   cardLast4: s(r.card_last4),
+  creditLimit: n(r.credit_limit),
+  cardNetwork: s(r.card_network) as Liability['cardNetwork'],
   notes: s(r.notes),
   createdAt: String(r.created_at),
 });
@@ -44,7 +46,8 @@ const liabilityToRow = (l: Liability) => ({
   id: l.id, member_id: l.memberId, provider: l.provider, kind: l.kind, status: l.status,
   balance: l.balance, interest_rate: l.interestRate ?? null, emi_amount: l.emiAmount ?? null,
   tenure_months: l.tenureMonths ?? null, start_month: l.startMonth ?? null, due_day: l.dueDay ?? null,
-  card_last4: l.cardLast4 ?? null, notes: l.notes ?? null, created_at: l.createdAt,
+  card_last4: l.cardLast4 ?? null, credit_limit: l.creditLimit ?? null, card_network: l.cardNetwork ?? null,
+  notes: l.notes ?? null, created_at: l.createdAt,
 });
 
 const installmentFromRow = (r: Row): Installment => ({

@@ -403,3 +403,91 @@ export function spendingByCategory(expenses: Expense[], monthKey: string) {
 export function memberById(members: Member[]): Map<string, Member> {
   return new Map(members.map((m) => [m.id, m]));
 }
+
+// ---------------------------------------------------------------------------
+// Credit cards
+// ---------------------------------------------------------------------------
+
+export interface CardUsage {
+  used: number;
+  limit?: number;
+  available?: number;
+  /** 0–100+, undefined when the limit is unknown */
+  percent?: number;
+}
+
+/** How much of a card's limit is in use. A converted balance still counts against the limit until repaid. */
+export function cardUsage(l: Liability, installments: Installment[]): CardUsage {
+  const used = outstandingFor(l, installments);
+  if (!l.creditLimit || l.creditLimit <= 0) return { used };
+  return {
+    used,
+    limit: l.creditLimit,
+    available: Math.max(0, l.creditLimit - used),
+    percent: (used / l.creditLimit) * 100,
+  };
+}
+
+/** Credit utilisation bands used by Indian credit bureaus' guidance: under 30% is healthy. */
+export function utilizationTone(percent: number): 'positive' | 'warning' | 'negative' {
+  return percent <= 30 ? 'positive' : percent <= 75 ? 'warning' : 'negative';
+}
+
+export function isOpenCard(l: Liability): boolean {
+  return l.kind === 'credit_card' && l.status !== 'closed';
+}
+
+/** Totals across cards that have a limit set. */
+export function creditTotals(data: FinanceData) {
+  const byLiability = groupInstallments(data.installments);
+  let limit = 0;
+  let used = 0;
+  let cards = 0;
+  for (const l of data.liabilities) {
+    if (!isOpenCard(l) || !l.creditLimit) continue;
+    cards++;
+    limit += l.creditLimit;
+    used += outstandingFor(l, byLiability.get(l.id) ?? []);
+  }
+  return { limit, used, cards, percent: limit > 0 ? (used / limit) * 100 : undefined };
+}
+
+// ---------------------------------------------------------------------------
+// Overview helpers
+// ---------------------------------------------------------------------------
+
+export type DebtGroup = 'cards' | 'loans' | 'emis' | 'bnpl';
+
+/** Outstanding split into what kind of debt it is. Converted card balances count as EMIs. */
+export function debtMix(data: FinanceData): Record<DebtGroup, number> {
+  const byLiability = groupInstallments(data.installments);
+  const mix: Record<DebtGroup, number> = { cards: 0, loans: 0, emis: 0, bnpl: 0 };
+  for (const l of data.liabilities) {
+    const owed = outstandingFor(l, byLiability.get(l.id) ?? []);
+    if (!owed) continue;
+    const group: DebtGroup =
+      l.kind === 'credit_card' ? (l.status === 'converted' ? 'emis' : 'cards') : l.kind === 'loan' ? 'loans' : l.kind === 'emi' ? 'emis' : 'bnpl';
+    mix[group] += owed;
+  }
+  return mix;
+}
+
+/** EMIs falling due in a given month: how many and how much, and how much is already ticked off. */
+export function monthEmiProgress(data: FinanceData, monthKey: string) {
+  // Includes plans that were just closed, so finishing a plan this month shows as paid
+  const known = new Set(data.liabilities.map((l) => l.id));
+  let due = 0;
+  let paid = 0;
+  let count = 0;
+  let paidCount = 0;
+  for (const i of data.installments) {
+    if (i.dueMonth !== monthKey || !known.has(i.liabilityId)) continue;
+    count++;
+    due += i.amount;
+    if (i.paidOn) {
+      paidCount++;
+      paid += i.amount;
+    }
+  }
+  return { due, paid, count, paidCount, percent: due > 0 ? (paid / due) * 100 : 0 };
+}

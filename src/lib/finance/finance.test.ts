@@ -2,6 +2,11 @@ import { describe, expect, it } from 'vitest';
 import {
   buildInstallments,
   calculateEmi,
+  cardUsage,
+  creditTotals,
+  debtMix,
+  monthEmiProgress,
+  utilizationTone,
   emiBreakdown,
   nextPremiumDateAfterPayment,
   outstandingFor,
@@ -239,5 +244,43 @@ describe('compact currency', () => {
     expect(formatINRCompact(1000000)).toBe('₹10L');
     expect(formatINRCompact(12000000)).toBe('₹1.2Cr');
     expect(formatINRCompact(950)).toBe('₹950');
+  });
+});
+
+describe('credit cards & overview helpers', () => {
+  it('reports card utilisation against the limit', () => {
+    const u = cardUsage(liability({ balance: 30000, creditLimit: 100000 }), []);
+    expect(u).toMatchObject({ used: 30000, available: 70000, percent: 30 });
+    expect(utilizationTone(30)).toBe('positive');
+    expect(utilizationTone(50)).toBe('warning');
+    expect(utilizationTone(90)).toBe('negative');
+    expect(cardUsage(liability(), []).percent).toBeUndefined();
+  });
+
+  it('totals only open cards with a limit', () => {
+    const t = creditTotals(data({
+      liabilities: [
+        liability({ creditLimit: 100000, balance: 25000 }),
+        liability({ id: 'l2', creditLimit: 50000, balance: 0, status: 'closed' }),
+        liability({ id: 'l3', balance: 9000 }),
+      ],
+    }));
+    expect(t).toMatchObject({ limit: 100000, used: 25000, cards: 1, percent: 25 });
+  });
+
+  it('splits debt by kind, counting converted card balances as EMIs', () => {
+    const inst = buildInstallments('l2', 1000, 3, '2026-10', id);
+    const mix = debtMix(data({
+      liabilities: [liability(), liability({ id: 'l2', status: 'converted', emiAmount: 1000, tenureMonths: 3 }), liability({ id: 'l3', kind: 'loan', balance: 5000 })],
+      installments: inst,
+    }));
+    expect(mix).toEqual({ cards: 26000, loans: 5000, emis: 3000, bnpl: 0 });
+  });
+
+  it('tracks this month’s EMIs paid vs due', () => {
+    const inst = buildInstallments('l2', 1000, 2, '2026-10', id);
+    inst[0].paidOn = '2026-10-04';
+    const p = monthEmiProgress(data({ liabilities: [liability({ id: 'l2', kind: 'emi' })], installments: inst }), '2026-10');
+    expect(p).toMatchObject({ due: 1000, paid: 1000, count: 1, paidCount: 1, percent: 100 });
   });
 });

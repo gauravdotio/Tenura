@@ -1,4 +1,4 @@
-import type { ExpenseCategory, LiabilityKind, LiabilityStatus, MemberColor, PremiumFrequency } from './finance/types';
+import type { CardNetwork, ExpenseCategory, LiabilityKind, LiabilityStatus, MemberColor, PremiumFrequency } from './finance/types';
 
 const inr = new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 });
 
@@ -84,3 +84,11 @@ export function initials(name: string): string {
 export function pluralize(n: number, one: string, many = `${one}s`) {
   return `${n} ${n === 1 ? one : many}`;
 }
+
+export const NETWORK_LABEL: Record<CardNetwork, string> = {
+  visa: 'Visa',
+  mastercard: 'Mastercard',
+  rupay: 'RuPay',
+  amex: 'American Express',
+  diners: 'Diners Club',
+};

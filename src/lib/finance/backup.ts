@@ -1,4 +1,5 @@
 import type {
+  CardNetwork,
   Expense,
   ExpenseCategory,
   FinanceData,
@@ -39,6 +40,7 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 const COLORS: MemberColor[] = ['blue', 'teal', 'violet', 'amber', 'rose', 'slate'];
 const KINDS: LiabilityKind[] = ['credit_card', 'loan', 'emi', 'bnpl'];
+const NETWORKS: CardNetwork[] = ['visa', 'mastercard', 'rupay', 'amex', 'diners'];
 const CATEGORIES: ExpenseCategory[] = ['housing', 'utilities', 'groceries', 'dining', 'shopping', 'transport', 'health', 'education', 'entertainment', 'other'];
 const LEGACY_CATEGORY: Record<string, ExpenseCategory> = { food_groceries: 'groceries', debt_emi: 'other' };
 
@@ -106,6 +108,8 @@ export function parseBackup(text: string): ParseResult {
       startMonth: /^\d{4}-\d{2}/.test(str(l.startMonth ?? l.startDate)) ? str(l.startMonth ?? l.startDate).slice(0, 7) : undefined,
       dueDay: optNum(l.dueDay) && num(l.dueDay) <= 31 ? Math.round(num(l.dueDay)) : undefined,
       cardLast4: /^\d{4}$/.test(str(l.cardLast4)) ? str(l.cardLast4) : undefined,
+      creditLimit: optNum(l.creditLimit),
+      cardNetwork: NETWORKS.includes(l.cardNetwork as CardNetwork) ? (l.cardNetwork as CardNetwork) : undefined,
       notes: optStr(l.notes),
       createdAt: str(l.createdAt) || new Date().toISOString(),
     };
@@ -178,9 +182,9 @@ export function liabilitiesCsv(data: FinanceData, outstanding: (l: Liability) =>
     const s = v === undefined || v === null ? '' : String(v);
     return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
   };
-  const header = ['Member', 'Provider', 'Type', 'Status', 'Principal / balance', 'Outstanding', 'Interest %', 'EMI', 'Tenure (months)', 'Start month', 'Notes'];
+  const header = ['Member', 'Provider', 'Type', 'Status', 'Principal / balance', 'Credit limit', 'Outstanding', 'Interest %', 'EMI', 'Tenure (months)', 'Start month', 'Notes'];
   const rows = data.liabilities.map((l) => [
-    members.get(l.memberId), l.provider, l.kind, l.status, l.balance, outstanding(l),
+    members.get(l.memberId), l.provider, l.kind, l.status, l.balance, l.creditLimit, outstanding(l),
     l.interestRate, l.emiAmount, l.tenureMonths, l.startMonth, l.notes,
   ]);
   return [header, ...rows].map((r) => r.map(esc).join(',')).join('\n');

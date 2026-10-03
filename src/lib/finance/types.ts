@@ -15,6 +15,8 @@ export interface Member {
 
 export type LiabilityKind = 'credit_card' | 'loan' | 'emi' | 'bnpl';
 
+export type CardNetwork = 'visa' | 'mastercard' | 'rupay' | 'amex' | 'diners';
+
 /**
  * - active:    being repaid (card balance, loan, EMI plan)
  * - converted: a card balance that was converted into an EMI plan
@@ -39,6 +41,9 @@ export interface Liability {
   /** Credit cards: day of the month the bill is due. */
   dueDay?: number;
   cardLast4?: string;
+  /** Credit cards: total credit limit. */
+  creditLimit?: number;
+  cardNetwork?: CardNetwork;
   notes?: string;
   createdAt: string;
 }

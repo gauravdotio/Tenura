@@ -4,12 +4,13 @@ import { useFinance } from '../context/FinanceContext';
 import { useOpenDialog } from '../context/DialogContext';
 import { useToast } from '../context/ToastContext';
 import type { Liability } from '../lib/finance/types';
-import { outstandingFor, planProgress } from '../lib/finance/calc';
+import { creditTotals, isOpenCard, outstandingFor, planProgress, utilizationTone } from '../lib/finance/calc';
 import { formatMonthKey } from '../lib/finance/dates';
 import { KIND_LABEL, STATUS_LABEL, formatINR } from '../lib/format';
 import { navigate } from '../lib/router';
 import { Badge, Button, Card, ConfirmDialog, EmptyState, Input, MemberAvatar, PageHeader, Progress, Segmented } from '../components/ui';
 import { RowMenu } from '../components/ui/Menu';
+import { CardsGallery } from '../components/CardsGallery';
 
 type Filter = 'open' | 'cards' | 'loans' | 'closed';
 
@@ -45,6 +46,10 @@ export function LiabilitiesPage() {
     (t, r) => ({ owed: t.owed + r.owed, emi: t.emi + (r.progress && r.progress.remainingAmount > 0 ? r.l.emiAmount ?? 0 : 0) }),
     { owed: 0, emi: 0 },
   );
+  const openCards = useMemo(() => scoped.liabilities.filter(isOpenCard), [scoped.liabilities]);
+  const credit = useMemo(() => creditTotals(scoped), [scoped]);
+  const showCards = (filter === 'open' || filter === 'cards') && !query && openCards.length > 0;
+
   const counts = {
     open: scoped.liabilities.filter((l) => l.status !== 'closed').length,
     closed: scoped.liabilities.filter((l) => l.status === 'closed').length,
@@ -91,6 +96,27 @@ export function LiabilitiesPage() {
         description="Every credit card balance, loan, consumer EMI and pay-later plan."
         actions={<Button variant="primary" icon={<Plus className="h-4 w-4" />} onClick={() => openDialog({ type: 'liability' })}>Add loan or card</Button>}
       />
+
+      {showCards && (
+        <section aria-labelledby="cards-heading" className="mb-10">
+          <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
+            <div>
+              <h2 id="cards-heading" className="text-[15px] font-semibold text-ink">Credit cards</h2>
+              <p className="text-[13px] text-ink-muted">Tap a card to flip it. Card numbers and CVVs are never stored.</p>
+            </div>
+            {credit.percent !== undefined && (
+              <div className="w-full sm:w-auto sm:min-w-[220px] sm:text-right">
+                <p className="num text-sm text-ink-muted">
+                  <span className="font-semibold text-ink">{formatINR(credit.used)}</span> used of {formatINR(credit.limit)}
+                </p>
+                <Progress value={credit.percent} tone={utilizationTone(credit.percent)} className="mt-1.5" label="Total credit used" />
+                <p className="mt-1 text-xs text-ink-faint">{Math.round(credit.percent)}% overall utilisation</p>
+              </div>
+            )}
+          </div>
+          <CardsGallery cards={openCards} />
+        </section>
+      )}
 
       <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <Segmented

@@ -2,12 +2,13 @@ import { useMemo, useState, type FormEvent } from 'react';
 import { CreditCard, Landmark, ShoppingBag, Timer } from 'lucide-react';
 import { useFinance } from '../../context/FinanceContext';
 import { useToast } from '../../context/ToastContext';
-import type { Liability, LiabilityKind } from '../../lib/finance/types';
-import { emiBreakdown, hasPlan } from '../../lib/finance/calc';
+import type { CardNetwork, Liability, LiabilityKind } from '../../lib/finance/types';
+import { emiBreakdown, hasPlan, utilizationTone } from '../../lib/finance/calc';
 import { addMonthsToKey, formatMonthKey, toMonthKey } from '../../lib/finance/dates';
 import { newId } from '../../lib/finance/sample';
-import { formatINR } from '../../lib/format';
-import { Button, Field, Input, Modal, Select, Textarea, cx } from '../ui';
+import { NETWORK_LABEL, formatINR } from '../../lib/format';
+import { Button, Field, Input, Modal, Progress, Select, Textarea, cx } from '../ui';
+import { CreditCardVisual } from '../CreditCardVisual';
 import { MemberSelect } from './MemberSelect';
 
 const KINDS: { value: LiabilityKind; label: string; icon: typeof CreditCard }[] = [
@@ -26,7 +27,7 @@ const PROVIDERS = [
 const num = (s: string) => (s.trim() === '' ? NaN : Number(s));
 
 export function LiabilityForm({ liability, onClose }: { liability?: Liability; onClose: () => void }) {
-  const { saveLiability, scope, primary, installmentsByLiability } = useFinance();
+  const { saveLiability, scope, primary, installmentsByLiability, memberMap } = useFinance();
   const toast = useToast();
   const editing = Boolean(liability);
   const isConverted = liability?.status === 'converted';
@@ -36,6 +37,8 @@ export function LiabilityForm({ liability, onClose }: { liability?: Liability; o
   const [provider, setProvider] = useState(liability?.provider ?? '');
   const [balance, setBalance] = useState(liability?.balance ? String(liability.balance) : '');
   const [cardLast4, setCardLast4] = useState(liability?.cardLast4 ?? '');
+  const [creditLimit, setCreditLimit] = useState(liability?.creditLimit ? String(liability.creditLimit) : '');
+  const [network, setNetwork] = useState<CardNetwork | ''>(liability?.cardNetwork ?? '');
   const [dueDay, setDueDay] = useState(liability?.dueDay ? String(liability.dueDay) : '');
   const [rate, setRate] = useState(liability?.interestRate !== undefined ? String(liability.interestRate) : '');
   const [tenure, setTenure] = useState(liability?.tenureMonths ? String(liability.tenureMonths) : '');
@@ -70,6 +73,7 @@ export function LiabilityForm({ liability, onClose }: { liability?: Liability; o
     const b = num(balance);
     if (!(b >= 0) || (showsPlan && !(b > 0))) e.balance = showsPlan ? 'Enter the amount borrowed.' : 'Enter the current balance.';
     if (cardLast4 && !/^\d{4}$/.test(cardLast4)) e.cardLast4 = 'Four digits.';
+    if (kind === 'credit_card' && creditLimit && !(num(creditLimit) > 0)) e.creditLimit = 'Enter your total credit limit.';
     if (dueDay && !(Number.isInteger(num(dueDay)) && num(dueDay) >= 1 && num(dueDay) <= 31)) e.dueDay = 'A day between 1 and 31.';
     if (showsPlan && tenure && !(Number.isInteger(num(tenure)) && num(tenure) >= 1 && num(tenure) <= 480)) e.tenure = '1 to 480 months.';
     if (rate && !(num(rate) >= 0 && num(rate) <= 60)) e.rate = '0% to 60%.';
@@ -92,6 +96,8 @@ export function LiabilityForm({ liability, onClose }: { liability?: Liability; o
       status: closed ? 'closed' : isConverted ? 'converted' : 'active',
       balance: num(balance) || 0,
       cardLast4: kind === 'credit_card' && cardLast4 ? cardLast4 : undefined,
+      creditLimit: kind === 'credit_card' && num(creditLimit) > 0 ? num(creditLimit) : undefined,
+      cardNetwork: kind === 'credit_card' && network ? network : undefined,
       dueDay: dueDay ? num(dueDay) : undefined,
       interestRate: showsPlan && rate ? num(rate) : undefined,
       emiAmount: planned ? calc!.emi : undefined,
@@ -166,21 +172,54 @@ export function LiabilityForm({ liability, onClose }: { liability?: Liability; o
           </Field>
         </div>
 
+        {kind === 'credit_card' && (
+          <div className="grid items-center gap-5 sm:grid-cols-[minmax(0,15rem)_1fr]">
+            <CreditCardVisual
+              provider={provider.trim() || 'Your bank'}
+              last4={cardLast4.length === 4 ? cardLast4 : undefined}
+              network={network || undefined}
+              holder={memberMap.get(memberId)?.name}
+              size="sm"
+              className="mx-auto w-full max-w-[15rem]"
+            />
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <Field label="Last 4 digits" optional error={errors.cardLast4} htmlFor="lf-last4">
+                  <Input id="lf-last4" inputMode="numeric" maxLength={4} value={cardLast4} onChange={(e) => setCardLast4(e.target.value.replace(/\D/g, ''))} placeholder="4021" autoComplete="off" />
+                </Field>
+                <Field label="Network" optional htmlFor="lf-network">
+                  <Select id="lf-network" value={network} onChange={(e) => setNetwork(e.target.value as CardNetwork | '')}>
+                    <option value="">Not set</option>
+                    {(Object.keys(NETWORK_LABEL) as CardNetwork[]).map((n) => <option key={n} value={n}>{NETWORK_LABEL[n]}</option>)}
+                  </Select>
+                </Field>
+              </div>
+              <p className="text-xs text-ink-faint">Never enter your full card number, expiry or CVV — Tenura doesn’t need them and never stores them.</p>
+            </div>
+          </div>
+        )}
+
         {!showsPlan ? (
           <div className="grid gap-4 sm:grid-cols-3">
             <Field label="Outstanding balance" error={errors.balance} htmlFor="lf-balance">
               <Input id="lf-balance" type="number" inputMode="decimal" min={0} prefix="₹" value={balance} onChange={(e) => setBalance(e.target.value)} placeholder="25,000" />
             </Field>
+            <Field label="Total credit limit" optional error={errors.creditLimit} htmlFor="lf-limit">
+              <Input id="lf-limit" type="number" inputMode="decimal" min={0} prefix="₹" value={creditLimit} onChange={(e) => setCreditLimit(e.target.value)} placeholder="1,00,000" />
+            </Field>
             <Field label="Bill due day" optional error={errors.dueDay} hint="We'll remind you each month." htmlFor="lf-due">
               <Input id="lf-due" type="number" inputMode="numeric" min={1} max={31} value={dueDay} onChange={(e) => setDueDay(e.target.value)} placeholder="18" />
             </Field>
-            <Field label="Last 4 digits" optional error={errors.cardLast4} htmlFor="lf-last4">
-              <Input id="lf-last4" inputMode="numeric" maxLength={4} value={cardLast4} onChange={(e) => setCardLast4(e.target.value.replace(/\D/g, ''))} placeholder="4021" />
-            </Field>
+            {num(creditLimit) > 0 && num(balance) >= 0 && <LimitMeter used={num(balance) || 0} limit={num(creditLimit)} />}
           </div>
         ) : (
           <>
             <div className="grid gap-4 sm:grid-cols-3">
+              {isConverted && (
+                <Field label="Total credit limit" optional error={errors.creditLimit} htmlFor="lf-limit2" className="sm:col-span-3">
+                  <Input id="lf-limit2" type="number" inputMode="decimal" min={0} prefix="₹" value={creditLimit} onChange={(e) => setCreditLimit(e.target.value)} placeholder="1,00,000" />
+                </Field>
+              )}
               <Field label={isConverted ? 'Amount converted' : 'Amount borrowed'} error={errors.balance} htmlFor="lf-principal">
                 <Input id="lf-principal" type="number" inputMode="decimal" min={0} prefix="₹" value={balance} onChange={(e) => setBalance(e.target.value)} placeholder="1,50,000" />
               </Field>
@@ -252,5 +291,22 @@ export function LiabilityForm({ liability, onClose }: { liability?: Liability; o
         )}
       </form>
     </Modal>
+  );
+}
+
+function LimitMeter({ used, limit }: { used: number; limit: number }) {
+  const pct = (used / limit) * 100;
+  const tone = utilizationTone(pct);
+  return (
+    <div className="sm:col-span-3">
+      <div className="flex items-center justify-between text-xs">
+        <span className="text-ink-muted">
+          Using <span className="num font-medium text-ink">{Math.round(pct)}%</span> of your limit · <span className="num">{formatINR(Math.max(0, limit - used))}</span> available
+        </span>
+        {pct > 100 && <span className="font-medium text-negative">Over limit</span>}
+      </div>
+      <Progress value={pct} tone={tone} className="mt-1.5" label="Credit limit used" />
+      {tone !== 'positive' && pct <= 100 && <p className="mt-1.5 text-xs text-ink-faint">Keeping usage under 30% of the limit helps your CIBIL score.</p>}
+    </div>
   );
 }
