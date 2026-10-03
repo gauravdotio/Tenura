@@ -1,16 +1,19 @@
 import { useMemo, useState } from 'react';
-import { Crown, Pencil, Trash2, UserPlus } from 'lucide-react';
+import { CalendarClock, CreditCard, Crown, Pencil, Receipt, ShieldCheck, Trash2, UserPlus, Users, Wallet } from 'lucide-react';
 import { useFinance } from '../context/FinanceContext';
 import { useOpenDialog } from '../context/DialogContext';
 import { useToast } from '../context/ToastContext';
 import type { Member } from '../lib/finance/types';
 import { scopeData, summarize } from '../lib/finance/calc';
 import { formatINR, pluralize } from '../lib/format';
-import { Badge, Button, Card, ConfirmDialog, Field, IconButton, MemberAvatar, PageHeader, Progress, Select } from '../components/ui';
+import { Badge, Button, Card, ConfirmDialog, Field, IconButton, PageHeader, Progress, Select } from '../components/ui';
 import { navigate } from '../lib/router';
+import { StatBand, StatCard } from '../components/Visuals';
+import { MEMBER_HEX } from '../lib/visuals';
+import { initials } from '../lib/format';
 
 export function HouseholdPage() {
-  const { data, primary, setScope, removeMember } = useFinance();
+  const { data, summary, primary, setScope, removeMember } = useFinance();
   const openDialog = useOpenDialog();
   const toast = useToast();
   const [toRemove, setToRemove] = useState<Member | null>(null);
@@ -52,46 +55,49 @@ export function HouseholdPage() {
         actions={<Button variant="primary" icon={<UserPlus className="h-4 w-4" />} onClick={() => openDialog({ type: 'member' })}>Add member</Button>}
       />
 
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+      <StatBand>
+        <StatCard icon={<Users />} tint="accent" label="Members" value={String(data.members.length)} foot={data.members.map((m) => m.name.split(' ')[0]).join(', ')} />
+        <StatCard icon={<Wallet />} tint="negative" label="Household outstanding" value={formatINR(summary.outstanding)} foot={`${summary.openCount} open loans & cards`} />
+        <StatCard icon={<CalendarClock />} tint="warning" label="EMIs per month" value={formatINR(summary.monthlyEmi)} foot={`${summary.activePlanCount} active plans`} />
+        <StatCard icon={<Receipt />} tint="positive" label="Spent this month" value={formatINR(summary.spentThisMonth)} foot={summary.monthlyBudget ? `of ${formatINR(summary.monthlyBudget)} combined budget` : 'No budgets set'} />
+      </StatBand>
+
+      <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
         {data.members.map((m) => {
           const st = stats.get(m.id)!;
           const pct = m.monthlyBudget ? (st.s.spentThisMonth / m.monthlyBudget) * 100 : 0;
           return (
-            <Card key={m.id} className="flex flex-col p-5">
-              <div className="flex items-start gap-3">
-                <MemberAvatar member={m} size="lg" />
-                <div className="min-w-0 flex-1">
-                  <h2 className="flex items-center gap-2 truncate text-[15px] font-semibold text-ink">
-                    {m.name}
-                    {m.isPrimary && <Badge tone="accent"><Crown className="h-3 w-3" /> You</Badge>}
-                  </h2>
-                  <p className="text-[13px] text-ink-muted">{m.isPrimary ? 'Account holder' : m.relation}</p>
-                </div>
-                <div className="flex">
+            <Card key={m.id} className="flex flex-col overflow-hidden transition-shadow hover:shadow-lg">
+              <div className="relative h-20" style={{ background: `linear-gradient(120deg, ${MEMBER_HEX[m.color] ?? MEMBER_HEX.slate} 0%, ${MEMBER_HEX[m.color] ?? MEMBER_HEX.slate}99 100%)` }}>
+                <span className="pointer-events-none absolute -right-8 -top-12 h-32 w-32 rounded-full bg-white/15" aria-hidden />
+                <div className="absolute right-2 top-2 flex rounded-lg bg-white/90">
                   <IconButton label={`Edit ${m.name}`} onClick={() => openDialog({ type: 'member', member: m })}><Pencil className="h-4 w-4" /></IconButton>
                   {!m.isPrimary && (
                     <IconButton label={`Remove ${m.name}`} tone="danger" onClick={() => askRemove(m)}><Trash2 className="h-4 w-4" /></IconButton>
                   )}
                 </div>
               </div>
+              <div className="flex flex-1 flex-col px-5 pb-5">
+              <span
+                className="relative -mt-8 flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-surface text-xl font-bold shadow-lg ring-4 ring-surface"
+                style={{ color: MEMBER_HEX[m.color] ?? MEMBER_HEX.slate }}
+                aria-hidden
+              >
+                {initials(m.name)}
+              </span>
+              <div className="mt-3 min-w-0">
+                <h2 className="flex items-center gap-2 truncate text-[15px] font-semibold text-ink">
+                  {m.name}
+                  {m.isPrimary && <Badge tone="accent"><Crown className="h-3 w-3" /> You</Badge>}
+                </h2>
+                <p className="text-[13px] text-ink-muted">{m.isPrimary ? 'Account holder' : m.relation}</p>
+              </div>
 
-              <dl className="mt-5 grid grid-cols-2 gap-x-4 gap-y-3 text-sm">
-                <div>
-                  <dt className="text-xs text-ink-faint">Outstanding</dt>
-                  <dd className="num font-semibold text-ink">{formatINR(st.s.outstanding)}</dd>
-                </div>
-                <div>
-                  <dt className="text-xs text-ink-faint">EMIs / month</dt>
-                  <dd className="num font-semibold text-ink">{formatINR(st.s.monthlyEmi)}</dd>
-                </div>
-                <div>
-                  <dt className="text-xs text-ink-faint">Loans & cards</dt>
-                  <dd className="text-ink">{st.s.openCount} open</dd>
-                </div>
-                <div>
-                  <dt className="text-xs text-ink-faint">Policies</dt>
-                  <dd className="text-ink">{st.d.policies.length}</dd>
-                </div>
+              <dl className="mt-5 grid grid-cols-2 gap-3 text-sm">
+                <MiniFact icon={<Wallet className="h-3.5 w-3.5" />} label="Outstanding" value={formatINR(st.s.outstanding)} />
+                <MiniFact icon={<CalendarClock className="h-3.5 w-3.5" />} label="EMIs / month" value={formatINR(st.s.monthlyEmi)} />
+                <MiniFact icon={<CreditCard className="h-3.5 w-3.5" />} label="Loans & cards" value={`${st.s.openCount} open`} />
+                <MiniFact icon={<ShieldCheck className="h-3.5 w-3.5" />} label="Policies" value={String(st.d.policies.length)} />
               </dl>
 
               <div className="mt-5 flex-1">
@@ -115,6 +121,7 @@ export function HouseholdPage() {
               >
                 View {m.isPrimary ? 'your' : `${m.name}’s`} dashboard
               </Button>
+              </div>
             </Card>
           );
         })}
@@ -153,6 +160,15 @@ export function HouseholdPage() {
           )
         }
       />
+    </div>
+  );
+}
+
+function MiniFact({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {
+  return (
+    <div className="rounded-xl bg-surface-sunken px-3 py-2.5">
+      <dt className="flex items-center gap-1.5 text-xs text-ink-faint">{icon} {label}</dt>
+      <dd className="num mt-0.5 font-semibold text-ink">{value}</dd>
     </div>
   );
 }

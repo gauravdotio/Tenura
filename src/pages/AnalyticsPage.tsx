@@ -1,12 +1,13 @@
 import { useMemo } from 'react';
 import { Area, AreaChart, Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
-import { BarChart3 } from 'lucide-react';
+import { BarChart3, CalendarCheck, Flame, TrendingDown, Wallet } from 'lucide-react';
 import { useFinance } from '../context/FinanceContext';
 import { outstandingFor, projectBurndown, projectOutflow, spendingByCategory } from '../lib/finance/calc';
 import { formatMonthKey, toMonthKey } from '../lib/finance/dates';
 import type { ExpenseCategory } from '../lib/finance/types';
 import { CATEGORY_LABEL, formatINR, formatINRCompact } from '../lib/format';
 import { Card, CardHeader, EmptyState, MemberAvatar, PageHeader } from '../components/ui';
+import { CategoryIcon, IssuerMark, StatBand, StatCard } from '../components/Visuals';
 
 const axis = { stroke: 'var(--chart-axis)', fontSize: 12, tickLine: false, axisLine: false } as const;
 
@@ -63,7 +64,7 @@ function RankedBars({ rows }: { rows: { key: string; label: React.ReactNode; val
 }
 
 export default function AnalyticsPage() {
-  const { data, scoped, scope, installmentsByLiability } = useFinance();
+  const { data, scoped, scope, summary, installmentsByLiability } = useFinance();
   const today = useMemo(() => new Date(), []);
 
   const outflow = useMemo(() => projectOutflow(scoped, today, 12), [scoped, today]);
@@ -73,7 +74,7 @@ export default function AnalyticsPage() {
   const byLender = useMemo(
     () =>
       scoped.liabilities
-        .map((l) => ({ key: l.id, label: l.provider, value: outstandingFor(l, installmentsByLiability.get(l.id) ?? []) }))
+        .map((l) => ({ key: l.id, label: <span className="flex items-center gap-2"><IssuerMark name={l.provider} size="sm" /> {l.provider}</span>, value: outstandingFor(l, installmentsByLiability.get(l.id) ?? []) }))
         .filter((r) => r.value > 0)
         .sort((a, b) => b.value - a.value)
         .slice(0, 8),
@@ -101,17 +102,29 @@ export default function AnalyticsPage() {
     () =>
       spendingByCategory(scoped.expenses, toMonthKey(today)).map((c) => ({
         key: c.category,
-        label: CATEGORY_LABEL[c.category as ExpenseCategory],
+        label: <span className="flex items-center gap-2"><CategoryIcon category={c.category as ExpenseCategory} size="sm" /> {CATEGORY_LABEL[c.category as ExpenseCategory]}</span>,
         value: c.amount,
       })),
     [scoped.expenses, today],
   );
 
   const nothing = !hasOutflow && byLender.length === 0 && categories.length === 0;
+  const avgOutflow = outflow.reduce((s, r) => s + r.emi + r.premiums, 0) / Math.max(1, outflow.length);
+  const peak = outflow.reduce<(typeof outflow)[number] | undefined>((best, r) => (!best || r.emi + r.premiums > best.emi + best.premiums ? r : best), undefined);
+  const cleared = (burndown[0]?.balance ?? 0) - (burndown.at(-1)?.balance ?? 0);
 
   return (
     <div className="animate-fade-in">
       <PageHeader title="Analytics" description="Where your money is committed over the next year." />
+
+      {!nothing && (
+        <StatBand>
+          <StatCard icon={<Wallet />} tint="accent" label="Avg. monthly outflow" value={formatINR(Math.round(avgOutflow))} foot="EMIs + premiums, next 12 months" />
+          <StatCard icon={<Flame />} tint="warning" label="Heaviest month" value={peak ? formatINR(peak.emi + peak.premiums) : '—'} foot={peak ? formatMonthKey(peak.month) : undefined} />
+          <StatCard icon={<TrendingDown />} tint="positive" label="Cleared in 12 months" value={formatINR(Math.max(0, cleared))} foot={burndown[0]?.balance ? `${Math.round((cleared / burndown[0].balance) * 100)}% of today’s debt` : undefined} />
+          <StatCard icon={<CalendarCheck />} tint="neutral" label="EMIs finish" value={summary.debtFreeMonth ? formatMonthKey(summary.debtFreeMonth) : '—'} foot="if every EMI is paid on time" />
+        </StatBand>
+      )}
 
       {nothing ? (
         <Card>

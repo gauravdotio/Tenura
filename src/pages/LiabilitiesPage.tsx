@@ -1,10 +1,11 @@
 import { useMemo, useState } from 'react';
-import { CalendarClock, CheckCircle2, CreditCard, Pencil, Plus, RefreshCw, Search, Trash2 } from 'lucide-react';
+import { BadgeCheck, CalendarClock, CheckCircle2, CreditCard, Landmark, Pencil, Plus, RefreshCw, Search, Trash2, Wallet } from 'lucide-react';
 import { useFinance } from '../context/FinanceContext';
 import { useOpenDialog } from '../context/DialogContext';
 import { useToast } from '../context/ToastContext';
 import type { Liability } from '../lib/finance/types';
 import { creditTotals, isOpenCard, outstandingFor, planProgress, utilizationTone } from '../lib/finance/calc';
+import { IssuerMark, StatBand, StatCard } from '../components/Visuals';
 import { formatMonthKey } from '../lib/finance/dates';
 import { KIND_LABEL, STATUS_LABEL, formatINR } from '../lib/format';
 import { navigate } from '../lib/router';
@@ -15,7 +16,7 @@ import { CardsGallery } from '../components/CardsGallery';
 type Filter = 'open' | 'cards' | 'loans' | 'closed';
 
 export function LiabilitiesPage() {
-  const { data, scoped, scope, memberMap, installmentsByLiability, saveLiability, removeLiability } = useFinance();
+  const { data, scoped, scope, summary, memberMap, installmentsByLiability, saveLiability, removeLiability } = useFinance();
   const openDialog = useOpenDialog();
   const toast = useToast();
   const [filter, setFilter] = useState<Filter>('open');
@@ -97,6 +98,16 @@ export function LiabilitiesPage() {
         actions={<Button variant="primary" icon={<Plus className="h-4 w-4" />} onClick={() => openDialog({ type: 'liability' })}>Add loan or card</Button>}
       />
 
+      <StatBand>
+        <StatCard icon={<Wallet />} tint="negative" label="Outstanding" value={formatINR(summary.outstanding)} foot={`${counts.open} open · ${counts.closed} paid off`} />
+        <StatCard icon={<Landmark />} tint="accent" label="EMIs per month" value={formatINR(summary.monthlyEmi)} foot={`${summary.activePlanCount} active plan${summary.activePlanCount === 1 ? '' : 's'}`} />
+        <StatCard icon={<CreditCard />} tint="warning" label="Credit used"
+          value={credit.percent !== undefined ? `${Math.round(credit.percent)}%` : formatINR(summary.creditCardOutstanding)}
+          foot={credit.percent !== undefined ? `${formatINR(credit.used)} of ${formatINR(credit.limit)}` : 'Add card limits to see usage'}
+          bar={credit.percent !== undefined ? { value: credit.percent, tone: utilizationTone(credit.percent) } : undefined} />
+        <StatCard icon={<BadgeCheck />} tint="positive" label="Repaid so far" value={formatINR(summary.repaid)} foot={`${summary.closedCount} account${summary.closedCount === 1 ? '' : 's'} closed`} />
+      </StatBand>
+
       {showCards && (
         <section aria-labelledby="cards-heading" className="mb-10">
           <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
@@ -165,9 +176,9 @@ export function LiabilitiesPage() {
                     <tr key={l.id} className="group hover:bg-surface-sunken/50">
                       <td className="px-5 py-3.5">
                         <button className="flex items-center gap-3 text-left" onClick={() => openDialog({ type: 'liability', liability: l })}>
-                          {showMember && m && <MemberAvatar member={m} size="sm" />}
+                          <IssuerMark name={l.provider} size="sm" />
                           <span>
-                            <span className="block font-medium text-ink group-hover:underline">{l.provider}</span>
+                            <span className="flex items-center gap-2 font-medium text-ink"><span className="group-hover:underline">{l.provider}</span>{showMember && m && <MemberAvatar member={m} size="sm" />}</span>
                             <span className="block text-xs text-ink-faint">
                               {[l.cardLast4 && `•••• ${l.cardLast4}`, l.dueDay && !inst.length && `Due on the ${ordinal(l.dueDay)}`, l.notes].filter(Boolean).join(' · ') || '—'}
                             </span>
@@ -218,9 +229,9 @@ export function LiabilitiesPage() {
                 return (
                   <li key={l.id} className="px-4 py-4">
                     <div className="flex items-start gap-3">
-                      {showMember && m && <MemberAvatar member={m} size="sm" />}
+                      <IssuerMark name={l.provider} size="sm" />
                       <button className="min-w-0 flex-1 text-left" onClick={() => openDialog({ type: 'liability', liability: l })}>
-                        <p className="truncate font-medium text-ink">{l.provider}</p>
+                        <p className="flex items-center gap-2 truncate font-medium text-ink">{l.provider}{showMember && m && <MemberAvatar member={m} size="sm" />}</p>
                         <p className="mt-0.5 text-xs text-ink-faint">
                           {KIND_LABEL[l.kind]}
                           {l.cardLast4 && ` · •••• ${l.cardLast4}`}

@@ -1,4 +1,4 @@
-import { useMemo, type ReactNode } from 'react';
+import { useMemo } from 'react';
 import { ArrowRight, CreditCard, Plus, Receipt, ShieldCheck, TrendingDown, UserPlus, Wallet } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useFinance } from '../context/FinanceContext';
@@ -21,6 +21,7 @@ import { href } from '../lib/router';
 import { DueList } from '../components/DueList';
 import { CardTile } from '../components/CardsGallery';
 import { Button, Card, CardHeader, MemberAvatar, Progress, cx } from '../components/ui';
+import { CategoryIcon, Glow, Ring, StatCard } from '../components/Visuals';
 
 function greeting(d = new Date()) {
   const h = d.getHours();
@@ -100,8 +101,7 @@ export function OverviewPage() {
 
       {/* Hero: what you owe + this month */}
       <Card className="relative overflow-hidden">
-        <div className="pointer-events-none absolute -right-24 -top-32 h-80 w-80 rounded-full bg-accent/10 blur-3xl" aria-hidden />
-        <div className="pointer-events-none absolute -bottom-40 left-1/4 h-80 w-80 rounded-full bg-positive/10 blur-3xl" aria-hidden />
+        <Glow />
         <div className="relative grid lg:grid-cols-[1.5fr_1fr]">
           <div className="p-6 sm:p-8">
             <p className="flex items-center gap-2 text-[13px] font-medium text-ink-muted">
@@ -165,16 +165,16 @@ export function OverviewPage() {
 
       {/* Stats */}
       <section aria-label="Summary" className="grid grid-cols-2 gap-4 xl:grid-cols-4">
-        <MiniStat icon={<Wallet className="h-4 w-4" />} tint="accent" label="Monthly commitments" value={formatINR(summary.monthlyEmi + summary.monthlyPremiums)}
+        <StatCard icon={<Wallet className="h-4 w-4" />} tint="accent" label="Monthly commitments" value={formatINR(summary.monthlyEmi + summary.monthlyPremiums)}
           foot={`${formatINRCompact(summary.monthlyEmi)} EMIs · ${formatINRCompact(summary.monthlyPremiums)} premiums`} />
-        <MiniStat icon={<CreditCard className="h-4 w-4" />} tint="negative" label="Credit used"
+        <StatCard icon={<CreditCard className="h-4 w-4" />} tint="negative" label="Credit used"
           value={credit.percent !== undefined ? `${Math.round(credit.percent)}%` : formatINR(summary.creditCardOutstanding)}
           foot={credit.percent !== undefined ? `${formatINRCompact(credit.used)} of ${formatINRCompact(credit.limit)} limit` : 'Add card limits to see usage'}
           bar={credit.percent !== undefined ? { value: credit.percent, tone: utilizationTone(credit.percent) } : undefined} />
-        <MiniStat icon={<Receipt className="h-4 w-4" />} tint="warning" label="Spent this month" value={formatINR(summary.spentThisMonth)}
+        <StatCard icon={<Receipt className="h-4 w-4" />} tint="warning" label="Spent this month" value={formatINR(summary.spentThisMonth)}
           foot={summary.monthlyBudget > 0 ? (budgetPct > 100 ? `${formatINRCompact(summary.spentThisMonth - summary.monthlyBudget)} over budget` : `${formatINRCompact(summary.monthlyBudget - summary.spentThisMonth)} left of ${formatINRCompact(summary.monthlyBudget)}`) : 'No budget set'}
           bar={summary.monthlyBudget > 0 ? { value: budgetPct, tone: budgetPct > 100 ? 'negative' : budgetPct > 85 ? 'warning' : 'accent' } : undefined} />
-        <MiniStat icon={<ShieldCheck className="h-4 w-4" />} tint="positive" label="Insurance cover" value={formatINRCompact(summary.sumAssured)}
+        <StatCard icon={<ShieldCheck className="h-4 w-4" />} tint="positive" label="Insurance cover" value={formatINRCompact(summary.sumAssured)}
           foot={`${pluralize(scoped.policies.filter((p) => p.status === 'active').length, 'active policy', 'active policies')}`} />
       </section>
 
@@ -243,11 +243,12 @@ export function OverviewPage() {
                 const m = memberMap.get(e.memberId);
                 return (
                   <li key={e.id} className="flex items-center gap-3 px-5 py-3">
-                    {showMember && m && <MemberAvatar member={m} size="sm" />}
+                    <CategoryIcon category={e.category} size="sm" />
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-sm text-ink">{e.title}</p>
                       <p className="text-xs text-ink-faint">{CATEGORY_LABEL[e.category]} · {formatDate(e.date)}</p>
                     </div>
+                    {showMember && m && <MemberAvatar member={m} size="sm" />}
                     <span className="num text-sm font-medium text-ink">{formatINR(e.amount)}</span>
                   </li>
                 );
@@ -292,54 +293,6 @@ function Row({ label, value, tone, strong }: { label: string; value: string; ton
       <dt className="text-ink-muted">{label}</dt>
       <dd className={cx('num', strong ? 'font-semibold text-ink' : 'font-medium', tone === 'positive' ? 'text-positive' : !strong && 'text-ink')}>{value}</dd>
     </div>
-  );
-}
-
-/** Circular progress. */
-function Ring({ percent, label, children }: { percent: number; label: string; children: ReactNode }) {
-  const r = 42;
-  const c = 2 * Math.PI * r;
-  const pct = Math.max(0, Math.min(100, percent));
-  return (
-    <div className="relative h-28 w-28 shrink-0" role="img" aria-label={label}>
-      <svg viewBox="0 0 100 100" className="h-full w-full -rotate-90">
-        <circle cx="50" cy="50" r={r} fill="none" stroke="rgb(var(--surface-sunken))" strokeWidth="9" />
-        <circle
-          cx="50" cy="50" r={r} fill="none" stroke="rgb(var(--positive))" strokeWidth="9" strokeLinecap="round"
-          strokeDasharray={c} strokeDashoffset={c * (1 - pct / 100)}
-          className="transition-[stroke-dashoffset] duration-1000 ease-out"
-        />
-      </svg>
-      <div className="absolute inset-0 flex flex-col items-center justify-center">{children}</div>
-    </div>
-  );
-}
-
-const TINT = {
-  accent: 'bg-accent-soft text-accent',
-  negative: 'bg-negative-soft text-negative',
-  warning: 'bg-warning-soft text-warning',
-  positive: 'bg-positive-soft text-positive',
-};
-
-function MiniStat({ icon, tint, label, value, foot, bar }: {
-  icon: ReactNode;
-  tint: keyof typeof TINT;
-  label: string;
-  value: string;
-  foot: string;
-  bar?: { value: number; tone: 'accent' | 'positive' | 'warning' | 'negative' };
-}) {
-  return (
-    <Card className="flex flex-col p-4 transition-shadow hover:shadow-lg sm:p-5">
-      <div className="flex items-center gap-2.5">
-        <span className={cx('flex h-8 w-8 items-center justify-center rounded-lg', TINT[tint])}>{icon}</span>
-        <p className="text-[13px] font-medium text-ink-muted">{label}</p>
-      </div>
-      <p className="num mt-3 text-xl font-semibold tracking-tight text-ink sm:text-2xl">{value}</p>
-      {bar && <Progress value={bar.value} tone={bar.tone} className="mt-2.5" label={label} />}
-      <p className="mt-2 text-xs text-ink-muted">{foot}</p>
-    </Card>
   );
 }
 

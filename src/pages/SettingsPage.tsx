@@ -1,5 +1,5 @@
 import { useMemo, useRef, useState, type FormEvent, type ReactNode } from 'react';
-import { Cloud, Download, FileJson, HardDrive, Monitor, Moon, Sun, Upload } from 'lucide-react';
+import { AlertTriangle, Archive, Cloud, Download, FileJson, HardDrive, Monitor, Moon, Palette, Sun, Upload, UserRound } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useFinance } from '../context/FinanceContext';
 import { useTheme } from '../context/ThemeContext';
@@ -11,12 +11,22 @@ import type { FinanceData } from '../lib/finance/types';
 import { findLegacyVaults } from '../lib/auth/localAuth';
 import { navigate } from '../lib/router';
 import { pluralize } from '../lib/format';
-import { Button, Card, ConfirmDialog, Field, Input, PageHeader, Segmented } from '../components/ui';
+import { Button, Card, ConfirmDialog, Field, Input, PageHeader, Segmented, cx } from '../components/ui';
+import type { Tint } from '../components/Visuals';
 
-function Section({ title, description, children }: { title: string; description?: string; children: ReactNode }) {
+const TINTS: Record<Tint, string> = {
+  accent: 'bg-accent-soft text-accent',
+  negative: 'bg-negative-soft text-negative',
+  warning: 'bg-warning-soft text-warning',
+  positive: 'bg-positive-soft text-positive',
+  neutral: 'bg-surface-sunken text-ink-muted',
+};
+
+function Section({ title, description, icon, tint = 'neutral', children }: { title: string; description?: string; icon?: ReactNode; tint?: Tint; children: ReactNode }) {
   return (
     <Card className="grid gap-6 p-5 md:grid-cols-[240px_1fr] md:p-6">
       <div>
+        {icon && <span className={cx('mb-3 flex h-9 w-9 items-center justify-center rounded-xl [&>svg]:h-4 [&>svg]:w-4', TINTS[tint])}>{icon}</span>}
         <h2 className="text-[15px] font-semibold text-ink">{title}</h2>
         {description && <p className="mt-1 text-[13px] text-ink-muted">{description}</p>}
       </div>
@@ -88,7 +98,7 @@ export function SettingsPage() {
     <div className="animate-fade-in space-y-4">
       <PageHeader title="Settings" description="Your account, appearance and data." />
 
-      <Section title="Account" description="How you appear in Tenura.">
+      <Section title="Account" description="How you appear in Tenura." icon={<UserRound />} tint="accent">
         <form onSubmit={saveName} className="grid max-w-md gap-4">
           <Field label="Name" htmlFor="set-name">
             <Input id="set-name" value={name} onChange={(e) => setName(e.target.value)} />
@@ -102,7 +112,7 @@ export function SettingsPage() {
         </form>
       </Section>
 
-      <Section title="Appearance">
+      <Section title="Appearance" icon={<Palette />} tint="warning">
         <Segmented
           value={theme}
           onChange={setTheme}
@@ -114,7 +124,7 @@ export function SettingsPage() {
         />
       </Section>
 
-      <Section title="Storage" description="Where your household’s data lives.">
+      <Section title="Storage" description="Where your household’s data lives." icon={<Cloud />} tint="positive">
         <div className="flex items-start gap-3 rounded-xl bg-surface-sunken p-4">
           {storage === 'supabase' ? <Cloud className="mt-0.5 h-5 w-5 text-positive" /> : <HardDrive className="mt-0.5 h-5 w-5 text-ink-muted" />}
           <div className="text-sm">
@@ -130,7 +140,7 @@ export function SettingsPage() {
         </div>
       </Section>
 
-      <Section title="Backup & restore" description="Download everything as JSON, or your loans as a spreadsheet.">
+      <Section title="Backup & restore" description="Download everything as JSON, or your loans as a spreadsheet." icon={<Archive />} tint="accent">
         <div className="flex flex-wrap gap-2">
           <Button icon={<Download className="h-4 w-4" />} onClick={exportJson}>Export backup (.json)</Button>
           <Button icon={<Download className="h-4 w-4" />} onClick={exportCsv}>Export loans (.csv)</Button>
@@ -164,7 +174,7 @@ export function SettingsPage() {
         )}
       </Section>
 
-      <Section title="Danger zone" description="These can’t be undone.">
+      <Section title="Danger zone" description="These can’t be undone." icon={<AlertTriangle />} tint="negative">
         <div className="flex flex-wrap gap-2">
           <Button className="text-negative hover:text-negative" onClick={() => setConfirm('clear')}>Clear all data…</Button>
           <Button variant="danger" onClick={() => setConfirm('delete')}>Delete my account…</Button>

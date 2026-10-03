@@ -3,10 +3,11 @@ import { CalendarClock, Check, ChevronDown, Plus } from 'lucide-react';
 import { useFinance } from '../context/FinanceContext';
 import { useOpenDialog } from '../context/DialogContext';
 import type { Installment, Liability } from '../lib/finance/types';
-import { planProgress } from '../lib/finance/calc';
-import { formatDate, formatMonthKey, toMonthKey } from '../lib/finance/dates';
+import { DEFAULT_EMI_DAY, planProgress } from '../lib/finance/calc';
+import { dateInMonth, daysBetween, formatDate, formatMonthKey, formatRelativeDays, toISODate, toMonthKey } from '../lib/finance/dates';
 import { KIND_LABEL, formatINR, pluralize } from '../lib/format';
 import { Badge, Button, Card, EmptyState, MemberAvatar, PageHeader, Progress, Segmented, cx } from '../components/ui';
+import { Glow, IssuerMark, Ring } from '../components/Visuals';
 
 export function EmiSchedulesPage({ focusId }: { focusId?: string }) {
   const { data, scoped, scope, installmentsByLiability } = useFinance();
@@ -33,6 +34,18 @@ export function EmiSchedulesPage({ focusId }: { focusId?: string }) {
     },
     { left: 0, paid: 0 },
   );
+  const overallPct = totals.left + totals.paid > 0 ? (totals.paid / (totals.left + totals.paid)) * 100 : 0;
+  const nextDebit = useMemo(() => {
+    let best: { date: string; amount: number; name: string } | undefined;
+    for (const { l, inst } of plans) {
+      const n = planProgress(inst).nextDue;
+      if (!n) continue;
+      const date = dateInMonth(n.dueMonth, l.dueDay ?? DEFAULT_EMI_DAY);
+      if (!best || date < best.date) best = { date, amount: n.amount, name: l.provider };
+    }
+    return best;
+  }, [plans]);
+  const monthlyTotal = plans.reduce((s, { l, inst }) => s + (planProgress(inst).remainingAmount > 0 ? l.emiAmount ?? 0 : 0), 0);
 
   return (
     <div className="animate-fade-in">
@@ -41,6 +54,30 @@ export function EmiSchedulesPage({ focusId }: { focusId?: string }) {
         description="Month-by-month repayment plans. Tick off each instalment as it’s debited."
         actions={<Button variant="primary" icon={<Plus className="h-4 w-4" />} onClick={() => openDialog({ type: 'liability' })}>New EMI or loan</Button>}
       />
+
+      {show === 'active' && plans.length > 0 && (
+        <Card className="relative mb-8 overflow-hidden">
+          <Glow />
+          <div className="relative flex flex-col gap-6 p-6 sm:flex-row sm:items-center sm:p-8">
+            <Ring percent={overallPct} size={128} label={`${Math.round(overallPct)}% of all EMI plans repaid`}>
+              <span className="num text-2xl font-semibold text-ink">{Math.round(overallPct)}%</span>
+              <span className="text-[11px] text-ink-faint">repaid</span>
+            </Ring>
+            <div className="grid flex-1 grid-cols-2 gap-x-8 gap-y-5 lg:grid-cols-4">
+              <HeroStat label="Left to pay" value={formatINR(totals.left)} />
+              <HeroStat label="Paid so far" value={formatINR(totals.paid)} tone="positive" />
+              <HeroStat label="EMIs per month" value={formatINR(monthlyTotal)} sub={pluralize(plans.length, 'active plan')} />
+              {nextDebit && (
+                <HeroStat
+                  label="Next debit"
+                  value={formatINR(nextDebit.amount)}
+                  sub={`${nextDebit.name} · ${formatRelativeDays(daysBetween(toISODate(new Date()), nextDebit.date))}`}
+                />
+              )}
+            </div>
+          </div>
+        </Card>
+      )}
 
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <Segmented value={show} onChange={setShow} options={[{ value: 'active', label: 'Active' }, { value: 'closed', label: 'Completed' }]} />
@@ -100,8 +137,9 @@ function PlanCard({ liability: l, installments, focused, showMember }: { liabili
       <div className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center">
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
-            {showMember && member && <MemberAvatar member={member} size="sm" />}
+            <IssuerMark name={l.provider} size="sm" />
             <h2 className="truncate text-[15px] font-semibold text-ink">{l.provider}</h2>
+            {showMember && member && <MemberAvatar member={member} size="sm" />}
             <Badge>{l.status === 'converted' ? 'Card EMI' : KIND_LABEL[l.kind]}</Badge>
             {done && <Badge tone="positive"><Check className="h-3 w-3" /> Paid off</Badge>}
           </div>
@@ -194,5 +232,15 @@ function PlanCard({ liability: l, installments, focused, showMember }: { liabili
         </div>
       )}
     </Card>
+  );
+}
+
+function HeroStat({ label, value, sub, tone }: { label: string; value: string; sub?: string; tone?: 'positive' }) {
+  return (
+    <div className="min-w-0">
+      <p className="text-xs font-medium text-ink-muted">{label}</p>
+      <p className={cx('num mt-1 truncate text-lg font-semibold tracking-tight sm:text-xl', tone === 'positive' ? 'text-positive' : 'text-ink')}>{value}</p>
+      {sub && <p className="mt-0.5 truncate text-xs text-ink-faint">{sub}</p>}
+    </div>
   );
 }

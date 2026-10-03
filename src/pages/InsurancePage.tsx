@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { CalendarDays, Check, Pencil, Plus, ShieldCheck, Trash2 } from 'lucide-react';
+import { CalendarDays, Check, Hourglass, IndianRupee, Pencil, Plus, ShieldCheck, Trash2, Umbrella, Wallet } from 'lucide-react';
 import { useFinance } from '../context/FinanceContext';
 import { useOpenDialog } from '../context/DialogContext';
 import { useToast } from '../context/ToastContext';
@@ -7,7 +7,8 @@ import type { Policy } from '../lib/finance/types';
 import { annualPremium } from '../lib/finance/calc';
 import { daysBetween, formatDate, formatRelativeDays, toISODate } from '../lib/finance/dates';
 import { FREQUENCY_SUFFIX, formatINR, formatINRCompact } from '../lib/format';
-import { StatTile } from '../components/StatTile';
+import { StatBand, StatCard } from '../components/Visuals';
+import { issuerGradient, issuerInitials } from '../lib/visuals';
 import { Badge, Button, Card, ConfirmDialog, EmptyState, MemberAvatar, PageHeader } from '../components/ui';
 import { RowMenu } from '../components/ui/Menu';
 
@@ -51,18 +52,21 @@ export function InsurancePage() {
         actions={<Button variant="primary" icon={<Plus className="h-4 w-4" />} onClick={() => openDialog({ type: 'policy' })}>Add policy</Button>}
       />
 
-      <div className="grid gap-4 sm:grid-cols-3">
-        <StatTile label="Total cover" tone="positive" value={formatINRCompact(cover)} footer={`Sum assured across ${active.length} active ${active.length === 1 ? 'policy' : 'policies'}`} />
-        <StatTile label="Premiums per year" tone="accent" value={formatINR(yearly)} footer={`≈ ${formatINR(Math.round(yearly / 12))} a month`} />
-        <StatTile
+      <StatBand>
+        <StatCard icon={<Umbrella />} tint="positive" label="Total cover" value={formatINRCompact(cover)} foot={`Sum assured across ${active.length} active ${active.length === 1 ? 'policy' : 'policies'}`} />
+        <StatCard icon={<Wallet />} tint="accent" label="Premiums per year" value={formatINR(yearly)} foot={`≈ ${formatINR(Math.round(yearly / 12))} a month`} />
+        <StatCard
+          icon={<CalendarDays />}
+          tint="warning"
           label="Next premium"
           value={nextDue ? formatINR(nextDue.premium) : '—'}
-          footer={nextDue ? `${nextDue.name} · ${formatRelativeDays(daysBetween(today, nextDue.nextDueDate!)).toLowerCase()}` : 'Add a due date to get reminders'}
+          foot={nextDue ? `${nextDue.name} · ${formatRelativeDays(daysBetween(today, nextDue.nextDueDate!)).toLowerCase()}` : 'Add a due date to get reminders'}
         />
-      </div>
+        <StatCard icon={<ShieldCheck />} tint="neutral" label="Policies" value={String(policies.length)} foot={`${active.length} active · ${policies.length - active.length} lapsed or matured`} />
+      </StatBand>
 
       {policies.length === 0 ? (
-        <Card className="mt-6">
+        <Card>
           <EmptyState
             icon={<ShieldCheck className="h-5 w-5" />}
             title="No policies yet"
@@ -71,36 +75,46 @@ export function InsurancePage() {
           />
         </Card>
       ) : (
-        <div className="mt-6 grid gap-4 md:grid-cols-2">
+        <div className="grid gap-5 md:grid-cols-2">
           {policies.map((p) => {
             const m = memberMap.get(p.memberId);
             const days = p.nextDueDate ? daysBetween(today, p.nextDueDate) : null;
             return (
-              <Card key={p.id} className="flex flex-col p-5">
-                <div className="flex items-start gap-3">
-                  <div className="min-w-0 flex-1">
-                    <p className="text-xs font-medium text-ink-faint">{p.provider}</p>
-                    <h2 className="mt-0.5 truncate text-[15px] font-semibold text-ink">{p.name}</h2>
-                    {p.policyNumber && <p className="mt-0.5 font-mono text-xs text-ink-faint">No. {p.policyNumber}</p>}
+              <Card key={p.id} className="group flex flex-col overflow-hidden transition-shadow hover:shadow-lg">
+                <div className="relative px-5 pb-5 pt-4 text-white" style={{ background: issuerGradient(p.provider, 120) }}>
+                  <span className="pointer-events-none absolute -right-10 -top-16 h-40 w-40 rounded-full bg-white/10" aria-hidden />
+                  <ShieldCheck className="pointer-events-none absolute bottom-2 right-4 h-14 w-14 text-white/10" aria-hidden />
+                  <div className="relative flex items-start gap-3">
+                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white/15 text-[11px] font-bold tracking-wide ring-1 ring-white/20 backdrop-blur">
+                      {issuerInitials(p.provider)}
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-xs font-medium text-white/75">{p.provider}</p>
+                      <h2 className="mt-0.5 truncate text-[15px] font-semibold">{p.name}</h2>
+                      {p.policyNumber && <p className="mt-0.5 font-mono text-[11px] text-white/65">No. {p.policyNumber}</p>}
+                    </div>
+                    {p.status !== 'active' && <Badge tone={p.status === 'matured' ? 'positive' : 'negative'}>{p.status === 'matured' ? 'Matured' : 'Lapsed'}</Badge>}
+                    <span className="rounded-lg bg-white/90">
+                      <RowMenu
+                        label={`Actions for ${p.name}`}
+                        items={[
+                          { label: 'Edit', icon: <Pencil />, onSelect: () => openDialog({ type: 'policy', policy: p }) },
+                          { label: 'Delete', icon: <Trash2 />, tone: 'danger', onSelect: () => setToDelete(p) },
+                        ]}
+                      />
+                    </span>
                   </div>
-                  {p.status !== 'active' && <Badge tone={p.status === 'matured' ? 'positive' : 'negative'}>{p.status === 'matured' ? 'Matured' : 'Lapsed'}</Badge>}
-                  <RowMenu
-                    label={`Actions for ${p.name}`}
-                    items={[
-                      { label: 'Edit', icon: <Pencil />, onSelect: () => openDialog({ type: 'policy', policy: p }) },
-                      { label: 'Delete', icon: <Trash2 />, tone: 'danger', onSelect: () => setToDelete(p) },
-                    ]}
-                  />
                 </div>
-                <dl className="mt-4 grid grid-cols-2 gap-3">
+                <div className="flex flex-1 flex-col p-5 pt-4">
+                <dl className="grid grid-cols-2 gap-3">
                   <div className="rounded-xl bg-surface-sunken px-3 py-2.5">
-                    <dt className="text-xs text-ink-faint">Premium</dt>
+                    <dt className="flex items-center gap-1 text-xs text-ink-faint"><IndianRupee className="h-3 w-3" /> Premium</dt>
                     <dd className="num mt-0.5 text-sm font-semibold text-ink">
                       {formatINR(p.premium)}<span className="font-normal text-ink-faint">{FREQUENCY_SUFFIX[p.frequency]}</span>
                     </dd>
                   </div>
                   <div className="rounded-xl bg-surface-sunken px-3 py-2.5">
-                    <dt className="text-xs text-ink-faint">Sum assured</dt>
+                    <dt className="flex items-center gap-1 text-xs text-ink-faint"><Umbrella className="h-3 w-3" /> Sum assured</dt>
                     <dd className="num mt-0.5 text-sm font-semibold text-ink">{p.sumAssured ? formatINR(p.sumAssured) : '—'}</dd>
                   </div>
                 </dl>
@@ -115,7 +129,15 @@ export function InsurancePage() {
                         )}
                       </p>
                     )}
-                    {p.maturityDate && <p>Matures {formatDate(p.maturityDate)}</p>}
+                    {p.maturityDate && (
+                      <p className="flex items-center gap-1.5">
+                        <Hourglass className="h-3.5 w-3.5 text-ink-faint" />
+                        Matures {formatDate(p.maturityDate)}
+                        {p.status === 'active' && daysBetween(today, p.maturityDate) > 0 && (
+                          <span className="text-ink-faint">· {yearsLeft(daysBetween(today, p.maturityDate))}</span>
+                        )}
+                      </p>
+                    )}
                     {scope === 'all' && data.members.length > 1 && m && (
                       <p className="flex items-center gap-1.5 pt-1"><MemberAvatar member={m} size="sm" /> {m.name}</p>
                     )}
@@ -125,6 +147,7 @@ export function InsurancePage() {
                       Premium paid
                     </Button>
                   )}
+                </div>
                 </div>
               </Card>
             );
@@ -150,4 +173,11 @@ export function InsurancePage() {
       />
     </div>
   );
+}
+
+function yearsLeft(days: number) {
+  const years = days / 365.25;
+  if (years >= 1) return `${Math.floor(years)} yr${Math.floor(years) === 1 ? '' : 's'} to go`;
+  const months = Math.max(1, Math.round(days / 30.4));
+  return `${months} month${months === 1 ? '' : 's'} to go`;
 }
