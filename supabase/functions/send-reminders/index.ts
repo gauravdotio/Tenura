@@ -19,7 +19,9 @@ import { DEFAULT_SETTINGS, formatDate, formatINR, planReminders, todayInIndia, t
 
 const env = (k: string) => Deno.env.get(k) ?? '';
 const SITE_URL = env('SITE_URL') || 'https://tenura.gauravdot.in';
-const admin = createClient(env('SUPABASE_URL'), env('SUPABASE_SERVICE_ROLE_KEY'), { auth: { persistSession: false } });
+// Projects may expose the legacy service-role JWT, the newer sb_secret_ key, or both
+const SERVER_KEYS = [env('SUPABASE_SERVICE_ROLE_KEY'), env('SUPABASE_SECRET_KEY')].filter(Boolean);
+const admin = createClient(env('SUPABASE_URL'), SERVER_KEYS[0], { auth: { persistSession: false } });
 
 const pushReady = Boolean(env('VAPID_PUBLIC_KEY') && env('VAPID_PRIVATE_KEY'));
 if (pushReady) webpush.setVapidDetails(env('VAPID_SUBJECT') || 'mailto:reminders@tenura.app', env('VAPID_PUBLIC_KEY'), env('VAPID_PRIVATE_KEY'));
@@ -170,7 +172,9 @@ Deno.serve(async (req) => {
       return json({ ok: true, channels: await runTest(u.id, u.email, name) });
     }
 
-    const cronOk = (env('CRON_SECRET') && req.headers.get('x-cron-secret') === env('CRON_SECRET')) || token === env('SUPABASE_SERVICE_ROLE_KEY');
+    const cronOk =
+      (env('CRON_SECRET') && req.headers.get('x-cron-secret') === env('CRON_SECRET')) ||
+      (token !== '' && SERVER_KEYS.includes(token));
     if (!cronOk) return json({ error: 'forbidden' }, 403);
     return json({ ok: true, ...(await runDaily()) });
   } catch (err) {
