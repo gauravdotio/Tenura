@@ -435,7 +435,7 @@ function AiExplainer({ snapshot }: { snapshot: () => unknown }) {
                 ))}
               </div>
             )}
-            <p className="mt-3 text-xs text-ink-faint">Sends a summary of your numbers — amounts, rates and types, never names of people, card or account numbers — to Anthropic's Claude, which doesn't train on it.</p>
+            <p className="mt-3 text-xs text-ink-faint">Sends a summary of your numbers — amounts, rates and types, never names of people, card or account numbers — to Google Gemini to write this. On Google's free tier, Google may use it to improve its products.</p>
           </>
         )}
 

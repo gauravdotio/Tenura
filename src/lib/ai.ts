@@ -13,7 +13,7 @@ export interface AiPlan {
 export const aiAvailable = () => SITE.aiExplainer && Boolean(supabase);
 
 /**
- * Asks Claude to explain the plan Tenura computed. Only the anonymised
+ * Asks the AI (Google Gemini, via the `ai-advisor` Edge Function) to explain the plan Tenura computed. Only the anonymised
  * snapshot is sent — no names of people, card numbers or account numbers.
  */
 export async function explainPlan(snapshot: unknown, question?: string): Promise<AiPlan> {

@@ -4,14 +4,14 @@
 //
 // Turns the money plan Tenura already computed in the browser (amounts, rates,
 // findings — no names of people, card or account numbers) into a plain-language
-// plan with Claude. All arithmetic is done by Tenura; the model only explains it.
+// plan with Google Gemini. All arithmetic is done by Tenura; the model only explains it.
 //
 // Secrets (Supabase → Edge Functions → Secrets):
-//   ANTHROPIC_API_KEY   required
+//   GEMINI_API_KEY      required — free key from https://aistudio.google.com
+//   GEMINI_MODEL        optional, default gemini-3.5-flash-lite
 //   AI_DAILY_LIMIT      optional, requests per user per 24h (default 20)
 // SUPABASE_URL and the service key are provided by the platform.
 
-import Anthropic from 'npm:@anthropic-ai/sdk@0.131.0';
 import { createClient } from 'npm:@supabase/supabase-js@2';
 
 const env = (k: string) => Deno.env.get(k) ?? '';
@@ -24,7 +24,7 @@ function secretKey(): string {
   }
 }
 const admin = createClient(env('SUPABASE_URL'), SERVER_KEY, { auth: { persistSession: false } });
-const anthropic = new Anthropic({ apiKey: env('ANTHROPIC_API_KEY') });
+const MODEL = env('GEMINI_MODEL') || 'gemini-3.5-flash-lite';
 const DAILY_LIMIT = Number(env('AI_DAILY_LIMIT')) || 20;
 const MAX_SNAPSHOT_BYTES = 24_000;
 
@@ -54,35 +54,62 @@ How to work:
 - If the user asked a question, answer it in "answer" in 2-4 sentences grounded in their numbers; otherwise return an empty string.
 - If key data is missing (no income, no rates), say so briefly in the summary.`;
 
+// Gemini's response schema (OpenAPI subset)
 const SCHEMA = {
-  type: 'object',
+  type: 'OBJECT',
   properties: {
-    headline: { type: 'string', description: 'One sentence, under 15 words, the single most important message.' },
-    summary: { type: 'string', description: '2-3 sentences describing where the household stands.' },
+    headline: { type: 'STRING', description: 'One sentence, under 15 words, the single most important message.' },
+    summary: { type: 'STRING', description: '2-3 sentences describing where the household stands.' },
     steps: {
-      type: 'array',
+      type: 'ARRAY',
       items: {
-        type: 'object',
-        properties: {
-          title: { type: 'string' },
-          detail: { type: 'string' },
-          timeframe: { type: 'string' },
-        },
+        type: 'OBJECT',
+        properties: { title: { type: 'STRING' }, detail: { type: 'STRING' }, timeframe: { type: 'STRING' } },
         required: ['title', 'detail', 'timeframe'],
-        additionalProperties: false,
+        propertyOrdering: ['title', 'detail', 'timeframe'],
       },
     },
-    watchOuts: { type: 'array', items: { type: 'string' } },
-    answer: { type: 'string' },
+    watchOuts: { type: 'ARRAY', items: { type: 'STRING' } },
+    answer: { type: 'STRING' },
   },
   required: ['headline', 'summary', 'steps', 'watchOuts', 'answer'],
-  additionalProperties: false,
+  propertyOrdering: ['headline', 'summary', 'steps', 'watchOuts', 'answer'],
 };
+
+interface Plan {
+  headline: string;
+  summary: string;
+  steps: { title: string; detail: string; timeframe: string }[];
+  watchOuts: string[];
+  answer: string;
+}
+
+/** Keep only well-formed fields, so the page never renders something unexpected. */
+function sanitise(raw: unknown): Plan | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const r = raw as Record<string, unknown>;
+  const str = (v: unknown, max: number) => (typeof v === 'string' ? v.trim().slice(0, max) : '');
+  const steps = Array.isArray(r.steps)
+    ? r.steps
+        .filter((s): s is Record<string, unknown> => !!s && typeof s === 'object')
+        .map((s) => ({ title: str(s.title, 160), detail: str(s.detail, 800), timeframe: str(s.timeframe, 40) }))
+        .filter((s) => s.title && s.detail)
+        .slice(0, 6)
+    : [];
+  const plan = {
+    headline: str(r.headline, 200),
+    summary: str(r.summary, 1200),
+    steps,
+    watchOuts: Array.isArray(r.watchOuts) ? r.watchOuts.map((w) => str(w, 400)).filter(Boolean).slice(0, 4) : [],
+    answer: str(r.answer, 1200),
+  };
+  return plan.headline && plan.steps.length ? plan : null;
+}
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response(null, { status: 204, headers: cors(req) });
   if (req.method !== 'POST') return json(req, { error: 'POST only' }, 405);
-  if (!env('ANTHROPIC_API_KEY')) return json(req, { error: 'The AI planner isn’t set up yet.' }, 503);
+  if (!env('GEMINI_API_KEY')) return json(req, { error: 'The AI planner isn’t set up yet.' }, 503);
 
   // Who is asking
   const token = (req.headers.get('authorization') ?? '').replace(/^Bearer\s+/i, '');
@@ -109,37 +136,45 @@ Deno.serve(async (req) => {
   if ((count ?? 0) >= DAILY_LIMIT) return json(req, { error: `You’ve used today’s ${DAILY_LIMIT} AI explanations. Your plan above still updates live.` }, 429);
   await admin.from('ai_usage').insert({ user_id: userId });
 
-  const userContent = `<snapshot>\n${JSON.stringify(body.snapshot)}\n</snapshot>\n\n${question ? `My question: ${question}` : 'Explain my plan.'}`;
+  const userText = `<snapshot>\n${JSON.stringify(body.snapshot)}\n</snapshot>\n\n${question ? `My question: ${question}` : 'Explain my plan.'}`;
 
   try {
-    const params = {
-      model: 'claude-opus-5-5',
-      max_tokens: 8000,
-      betas: ['server-side-fallback-2026-07-01'],
-      fallbacks: 'default',
-      output_config: { effort: 'low', format: { type: 'json_schema', schema: SCHEMA } },
-      system: SYSTEM,
-      messages: [{ role: 'user', content: userContent }],
-    };
-    // `fallbacks` is newer than some SDK type definitions
-    const response = await anthropic.beta.messages.create(params as unknown as Parameters<typeof anthropic.beta.messages.create>[0]) as Anthropic.Beta.BetaMessage;
+    const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(MODEL)}:generateContent`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'x-goog-api-key': env('GEMINI_API_KEY') },
+      body: JSON.stringify({
+        systemInstruction: { parts: [{ text: SYSTEM }] },
+        contents: [{ role: 'user', parts: [{ text: userText }] }],
+        generationConfig: { responseMimeType: 'application/json', responseSchema: SCHEMA, temperature: 0.4, maxOutputTokens: 4096 },
+      }),
+      signal: AbortSignal.timeout(60_000),
+    });
 
-    if (response.stop_reason === 'refusal') return json(req, { error: 'The AI couldn’t help with this one. Your plan above is still accurate.' }, 502);
-    const text = response.content.find((b): b is Anthropic.Beta.BetaTextBlock => b.type === 'text')?.text;
-    if (!text) return json(req, { error: 'The AI returned nothing. Please try again.' }, 502);
-    const plan = JSON.parse(text);
-    return json(req, { ...plan, answer: plan.answer || undefined });
-  } catch (err) {
-    if (err instanceof Anthropic.RateLimitError) return json(req, { error: 'The AI is busy right now. Try again in a minute.' }, 503);
-    if (err instanceof Anthropic.AuthenticationError) {
-      console.error('ANTHROPIC_API_KEY rejected');
+    if (res.status === 429) return json(req, { error: 'The AI is busy right now (free-tier limit). Try again in a minute.' }, 503);
+    if (res.status === 400 || res.status === 401 || res.status === 403) {
+      console.error('gemini rejected the request', res.status, (await res.text()).slice(0, 500));
       return json(req, { error: 'The AI planner isn’t set up correctly yet.' }, 503);
     }
-    if (err instanceof Anthropic.APIError) {
-      console.error('anthropic error', err.status, err.message);
+    if (!res.ok) {
+      console.error('gemini error', res.status, (await res.text()).slice(0, 500));
       return json(req, { error: 'The AI planner had a problem. Please try again.' }, 502);
     }
+
+    const out = await res.json();
+    if (out?.promptFeedback?.blockReason) return json(req, { error: 'The AI couldn’t help with this one. Your plan above is still accurate.' }, 502);
+    const text: string | undefined = out?.candidates?.[0]?.content?.parts?.map((p: { text?: string }) => p.text ?? '').join('');
+    if (!text) return json(req, { error: 'The AI returned nothing. Please try again.' }, 502);
+
+    let plan: Plan | null = null;
+    try {
+      plan = sanitise(JSON.parse(text));
+    } catch {
+      plan = null;
+    }
+    if (!plan) return json(req, { error: 'The AI’s answer came back incomplete. Please try again.' }, 502);
+    return json(req, { ...plan, answer: plan.answer || undefined });
+  } catch (err) {
     console.error(err);
-    return json(req, { error: 'The AI planner had a problem. Please try again.' }, 500);
+    return json(req, { error: 'The AI planner had a problem. Please try again.' }, 502);
   }
 });
