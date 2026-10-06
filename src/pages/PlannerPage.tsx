@@ -159,9 +159,18 @@ export function PlannerPage() {
               <p className="mt-1 text-xs text-ink-faint">{formatINRCompact(plan.portfolio.value)} owned − {formatINRCompact(plan.totalPrincipal)} owed</p>
             </div>
             <div className="border-l border-line p-6 sm:px-8 lg:border-l-0 lg:border-t">
-              <dt className="text-[13px] font-medium text-ink-muted">{cash.surplus < 0 ? 'Short each month' : 'Free each month'}</dt>
-              <dd className={cx('num mt-1 text-2xl font-semibold tracking-tight', cash.surplus < 0 ? 'text-negative' : 'text-positive')}>{formatINR(Math.abs(cash.surplus))}</dd>
-              <p className="mt-1 text-xs text-ink-faint">{cash.income > 0 ? 'After EMIs, premiums, investing and spending' : 'Add income to calculate'}</p>
+              <dt className="text-[13px] font-medium text-ink-muted">{cash.income > 0 && cash.surplus < 0 ? 'Short each month' : 'Free each month'}</dt>
+              {cash.income > 0 ? (
+                <>
+                  <dd className={cx('num mt-1 text-2xl font-semibold tracking-tight', cash.surplus < 0 ? 'text-negative' : 'text-positive')}>{formatINR(Math.abs(cash.surplus))}</dd>
+                  <p className="mt-1 text-xs text-ink-faint">After EMIs, premiums, investing and spending</p>
+                </>
+              ) : (
+                <>
+                  <dd className="mt-1 text-2xl font-semibold tracking-tight text-ink-faint">—</dd>
+                  <a href={href('/app/income')} className="mt-1 inline-block text-xs font-medium text-accent hover:underline">Add income to calculate</a>
+                </>
+              )}
             </div>
           </dl>
         </div>
