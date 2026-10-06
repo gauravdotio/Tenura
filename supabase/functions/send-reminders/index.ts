@@ -20,7 +20,15 @@ import { DEFAULT_SETTINGS, formatDate, formatINR, planReminders, todayInIndia, t
 const env = (k: string) => Deno.env.get(k) ?? '';
 const SITE_URL = env('SITE_URL') || 'https://tenura.gauravdot.in';
 // Projects may expose the legacy service-role JWT, the newer sb_secret_ key, or both
-const SERVER_KEYS = [env('SUPABASE_SERVICE_ROLE_KEY'), env('SUPABASE_SECRET_KEY')].filter(Boolean);
+const SERVER_KEYS = [env('SUPABASE_SERVICE_ROLE_KEY'), env('SUPABASE_SECRET_KEY'), ...secretKeys()].filter(Boolean);
+function secretKeys(): string[] {
+  // Newer projects expose SUPABASE_SECRET_KEYS as JSON, e.g. {"default":"sb_secret_..."}
+  try {
+    return Object.values(JSON.parse(env('SUPABASE_SECRET_KEYS') || '{}')).filter((v): v is string => typeof v === 'string');
+  } catch {
+    return [];
+  }
+}
 const admin = createClient(env('SUPABASE_URL'), SERVER_KEYS[0], { auth: { persistSession: false } });
 
 const pushReady = Boolean(env('VAPID_PUBLIC_KEY') && env('VAPID_PRIVATE_KEY'));
@@ -172,9 +180,12 @@ Deno.serve(async (req) => {
       return json({ ok: true, channels: await runTest(u.id, u.email, name) });
     }
 
+    // The dashboard's cron sends the secret key as an `apikey` header rather than a bearer token
+    const apikey = req.headers.get('apikey') ?? '';
     const cronOk =
       (env('CRON_SECRET') && req.headers.get('x-cron-secret') === env('CRON_SECRET')) ||
-      (token !== '' && SERVER_KEYS.includes(token));
+      (token !== '' && SERVER_KEYS.includes(token)) ||
+      (apikey !== '' && SERVER_KEYS.includes(apikey));
     if (!cronOk) return json({ error: 'forbidden' }, 403);
     return json({ ok: true, ...(await runDaily()) });
   } catch (err) {
