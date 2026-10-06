@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import {
+  Banknote,
   Home,
   BarChart3,
   CalendarClock,
@@ -14,7 +15,9 @@ import {
   Receipt,
   Settings,
   ShieldCheck,
+  Sparkles,
   Sun,
+  TrendingUp,
   UserPlus,
   Users,
   X,
@@ -30,9 +33,12 @@ import { Logo } from './Logo';
 
 export const NAV = [
   { to: '/app', label: 'Overview', icon: LayoutDashboard },
+  { to: '/app/planner', label: 'Money plan', icon: Sparkles },
   { to: '/app/liabilities', label: 'Loans & cards', icon: CreditCard },
   { to: '/app/emis', label: 'EMI schedules', icon: CalendarClock },
   { to: '/app/expenses', label: 'Expenses', icon: Receipt },
+  { to: '/app/income', label: 'Income', icon: Banknote },
+  { to: '/app/investments', label: 'Investments', icon: TrendingUp },
   { to: '/app/insurance', label: 'Insurance & LIC', icon: ShieldCheck },
   { to: '/app/analytics', label: 'Analytics', icon: BarChart3 },
   { to: '/app/household', label: 'Household', icon: Users },
@@ -287,6 +293,8 @@ function QuickAdd({ compact }: { compact?: boolean }) {
   const items = [
     { label: 'Loan or credit card', onClick: () => openDialog({ type: 'liability' }) },
     { label: 'Expense', onClick: () => openDialog({ type: 'expense' }) },
+    { label: 'Income', onClick: () => openDialog({ type: 'income' }) },
+    { label: 'Investment', onClick: () => openDialog({ type: 'investment' }) },
     { label: 'Insurance policy', onClick: () => openDialog({ type: 'policy' }) },
     ...(shared ? [] : [{ label: 'Family member', onClick: () => openDialog({ type: 'member' }) }]),
   ];

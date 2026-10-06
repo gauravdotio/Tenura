@@ -33,7 +33,7 @@ const liability = (over: Partial<Liability> = {}): Liability => ({
   balance: 26000, createdAt: '2026-01-01T00:00:00Z', ...over,
 });
 const data = (over: Partial<FinanceData> = {}): FinanceData => ({
-  members: [member()], liabilities: [], installments: [], expenses: [], policies: [], ...over,
+  members: [member()], liabilities: [], installments: [], expenses: [], policies: [], incomes: [], investments: [], ...over,
 });
 
 describe('dates', () => {

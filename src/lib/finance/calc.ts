@@ -1,7 +1,10 @@
 import type {
   Expense,
   FinanceData,
+  Income,
   Installment,
+  Investment,
+  InvestmentKind,
   Liability,
   Member,
   MemberScope,
@@ -125,6 +128,146 @@ export function scopeData(data: FinanceData, scope: MemberScope): FinanceData {
     installments: data.installments.filter((i) => ids.has(i.liabilityId)),
     expenses: data.expenses.filter((e) => e.memberId === scope),
     policies: data.policies.filter((p) => p.memberId === scope),
+    incomes: data.incomes.filter((x) => x.memberId === scope),
+    investments: data.investments.filter((x) => x.memberId === scope),
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Income
+// ---------------------------------------------------------------------------
+
+/** Take-home income spread per month. Inactive sources count as 0. */
+export function monthlyIncome(i: Income): number {
+  return i.isActive ? (i.amount * PAYMENTS_PER_YEAR[i.frequency]) / 12 : 0;
+}
+
+export function totalMonthlyIncome(incomes: Income[]): number {
+  return Math.round(incomes.reduce((s, i) => s + monthlyIncome(i), 0));
+}
+
+// ---------------------------------------------------------------------------
+// Investments
+// ---------------------------------------------------------------------------
+
+/** Kinds paid in instalments every month/quarter. */
+export const RECURRING_INVESTMENTS: InvestmentKind[] = ['sip', 'rd', 'ppf', 'epf', 'nps'];
+/** Kinds where the amount entered is today's balance (PPF passbook, EPF statement, bank balance), not money put in at the start. */
+export const BALANCE_KINDS: InvestmentKind[] = ['ppf', 'epf', 'savings'];
+/** Kinds whose value follows the market — growth is only known if the user enters a current value. */
+export const MARKET_LINKED: InvestmentKind[] = ['sip', 'mutual_fund', 'stocks', 'nps', 'gold'];
+
+function monthsElapsed(fromIso: string, toIso: string): number {
+  const [fy, fm, fd] = fromIso.split('-').map(Number);
+  const [ty, tm, td] = toIso.split('-').map(Number);
+  return Math.max(0, (ty - fy) * 12 + (tm - fm) - (td < fd ? 1 : 0));
+}
+
+/** Instalments paid so far for a recurring plan (counting the first one on the start date). */
+function contributionsSoFar(inv: Investment, todayIso: string): number {
+  if (!inv.contribution || !inv.startDate || inv.startDate > todayIso) return 0;
+  const step = MONTHS_BETWEEN_PREMIUMS[inv.frequency ?? 'monthly'];
+  const end = inv.maturityDate && inv.maturityDate < todayIso ? inv.maturityDate : todayIso;
+  return Math.floor(monthsElapsed(inv.startDate, end) / step) + 1;
+}
+
+/** Money put in so far: what the user entered, or contributions estimated from the start date. */
+export function investedSoFar(inv: Investment, todayIso: string): number {
+  if (inv.invested > 0) return inv.invested;
+  return (inv.contribution ?? 0) * contributionsSoFar(inv, todayIso);
+}
+
+/** Indian bank deposits compound quarterly. */
+const fdGrowth = (principal: number, ratePct: number, months: number) => principal * Math.pow(1 + ratePct / 400, (4 * months) / 12);
+
+/**
+ * Today's value: the figure the user entered, else interest accrued for
+ * fixed-income kinds (FD, RD, PPF, EPF, savings), else what was put in.
+ */
+export function currentValue(inv: Investment, todayIso: string): number {
+  if (inv.status === 'closed') return 0;
+  if (inv.currentValue !== undefined && inv.currentValue > 0) return inv.currentValue;
+  if (BALANCE_KINDS.includes(inv.kind) && inv.invested > 0) return inv.invested;
+  const principal = investedSoFar(inv, todayIso);
+  const rate = inv.interestRate ?? 0;
+  if (!rate || !inv.startDate || MARKET_LINKED.includes(inv.kind)) return principal;
+  const end = inv.maturityDate && inv.maturityDate < todayIso ? inv.maturityDate : todayIso;
+  if (RECURRING_INVESTMENTS.includes(inv.kind) && inv.contribution && inv.invested <= 0) {
+    // Each instalment grows from the month it was paid
+    const step = MONTHS_BETWEEN_PREMIUMS[inv.frequency ?? 'monthly'];
+    const n = contributionsSoFar(inv, todayIso);
+    const total = monthsElapsed(inv.startDate, end);
+    let value = 0;
+    for (let k = 0; k < n; k++) value += fdGrowth(inv.contribution, rate, Math.max(0, total - k * step));
+    return Math.round(value);
+  }
+  return Math.round(fdGrowth(principal, rate, monthsElapsed(inv.startDate, end)));
+}
+
+/** Projected value at maturity for FD/RD-style deposits; undefined when it can't be known. */
+export function maturityValue(inv: Investment, todayIso: string): number | undefined {
+  if (!inv.maturityDate || !inv.startDate || !inv.interestRate || MARKET_LINKED.includes(inv.kind)) return undefined;
+  if (inv.maturityDate <= todayIso) return currentValue(inv, todayIso);
+  if (BALANCE_KINDS.includes(inv.kind) && inv.invested > 0) {
+    // Today's balance grows to maturity, plus any instalments still to come
+    const ahead = monthsElapsed(todayIso, inv.maturityDate);
+    let value = fdGrowth(inv.invested, inv.interestRate, ahead);
+    if (inv.contribution && inv.status === 'active') {
+      const step = MONTHS_BETWEEN_PREMIUMS[inv.frequency ?? 'monthly'];
+      for (let k = step; k <= ahead; k += step) value += fdGrowth(inv.contribution, inv.interestRate, ahead - k);
+    }
+    return Math.round(value);
+  }
+  const months = monthsElapsed(inv.startDate, inv.maturityDate);
+  if (RECURRING_INVESTMENTS.includes(inv.kind) && inv.contribution) {
+    const step = MONTHS_BETWEEN_PREMIUMS[inv.frequency ?? 'monthly'];
+    let value = 0;
+    for (let k = 0; k * step < months; k++) value += fdGrowth(inv.contribution, inv.interestRate, months - k * step);
+    return Math.round(value);
+  }
+  return Math.round(fdGrowth(inv.invested, inv.interestRate, months));
+}
+
+/** Recurring contribution spread per month (active plans only). */
+export function monthlyContribution(inv: Investment): number {
+  if (inv.status !== 'active' || !inv.contribution) return 0;
+  return inv.contribution / MONTHS_BETWEEN_PREMIUMS[inv.frequency ?? 'monthly'];
+}
+
+export interface PortfolioSummary {
+  invested: number;
+  value: number;
+  gain: number;
+  gainPct: number;
+  monthlyContributions: number;
+  emergencyFund: number;
+  byKind: { kind: InvestmentKind; value: number }[];
+}
+
+export function portfolioSummary(investments: Investment[], todayIso: string): PortfolioSummary {
+  let invested = 0;
+  let value = 0;
+  let monthly = 0;
+  let emergencyFund = 0;
+  const byKind = new Map<InvestmentKind, number>();
+  for (const inv of investments) {
+    if (inv.status === 'closed') continue;
+    const put = investedSoFar(inv, todayIso);
+    const now = currentValue(inv, todayIso);
+    invested += put;
+    value += now;
+    monthly += monthlyContribution(inv);
+    if (inv.emergencyFund) emergencyFund += now;
+    byKind.set(inv.kind, (byKind.get(inv.kind) ?? 0) + now);
+  }
+  return {
+    invested: Math.round(invested),
+    value: Math.round(value),
+    gain: Math.round(value - invested),
+    gainPct: invested > 0 ? ((value - invested) / invested) * 100 : 0,
+    monthlyContributions: Math.round(monthly),
+    emergencyFund: Math.round(emergencyFund),
+    byKind: [...byKind.entries()].map(([kind, v]) => ({ kind, value: Math.round(v) })).sort((a, b) => b.value - a.value),
   };
 }
 

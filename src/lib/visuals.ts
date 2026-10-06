@@ -1,5 +1,20 @@
 import {
+  Briefcase,
+  Building2,
+  CandlestickChart,
   Car,
+  Gem,
+  HandCoins,
+  Landmark,
+  Laptop,
+  LineChart,
+  Percent,
+  PiggyBank,
+  Repeat,
+  ShieldCheck,
+  Store,
+  TrendingUp,
+  Umbrella,
   Film,
   GraduationCap,
   HeartPulse,
@@ -11,7 +26,7 @@ import {
   UtensilsCrossed,
   Zap,
 } from 'lucide-react';
-import type { ExpenseCategory } from './finance/types';
+import type { ExpenseCategory, IncomeKind, InvestmentKind } from './finance/types';
 
 /**
  * Brand-ish colour themes for Indian banks and insurers. Approximations of each
@@ -79,4 +94,29 @@ export const MEMBER_HEX: Record<string, string> = {
   amber: '#c98500',
   rose: '#d4507a',
   slate: '#5f6b7a',
+};
+
+export const INCOME_STYLE: Record<IncomeKind, { icon: LucideIcon; color: string }> = {
+  salary: { icon: Briefcase, color: '#2a78d6' },
+  business: { icon: Store, color: '#13917a' },
+  freelance: { icon: Laptop, color: '#6a5acd' },
+  rental: { icon: Building2, color: '#c98500' },
+  pension: { icon: HandCoins, color: '#d4507a' },
+  interest: { icon: Percent, color: '#1baf7a' },
+  other: { icon: MoreHorizontal, color: '#898781' },
+};
+
+/** Colours for investment kinds: market-linked in cool tones, deposits in greens, gold in gold. */
+export const INVESTMENT_STYLE: Record<InvestmentKind, { icon: LucideIcon; color: string; from: string; to: string }> = {
+  sip: { icon: TrendingUp, color: '#2a78d6', from: '#0b2a5e', to: '#2a78d6' },
+  mutual_fund: { icon: LineChart, color: '#4a3aa7', from: '#1f1554', to: '#6a5acd' },
+  stocks: { icon: CandlestickChart, color: '#9085e9', from: '#2b1f5c', to: '#9085e9' },
+  fd: { icon: Landmark, color: '#13917a', from: '#063f35', to: '#13917a' },
+  rd: { icon: Repeat, color: '#1baf7a', from: '#0a4a32', to: '#1baf7a' },
+  ppf: { icon: ShieldCheck, color: '#008300', from: '#0b3d12', to: '#2f9a3a' },
+  epf: { icon: Briefcase, color: '#5f6b7a', from: '#1c242e', to: '#5f6b7a' },
+  nps: { icon: Umbrella, color: '#d4507a', from: '#4d0f27', to: '#d4507a' },
+  gold: { icon: Gem, color: '#c98500', from: '#5a3c00', to: '#e2a531' },
+  savings: { icon: PiggyBank, color: '#eb6834', from: '#5a2008', to: '#eb6834' },
+  other: { icon: MoreHorizontal, color: '#898781', from: '#22201c', to: '#898781' },
 };

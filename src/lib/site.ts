@@ -8,6 +8,11 @@ export const SITE = {
   issues: 'https://github.com/gauravdotio/Tenura/issues',
   /** Public key for web-push reminders (the private half lives only in Supabase secrets). */
   vapidPublicKey: 'BJu02zar3bllcb2TYgacQX4jG0EsW2HrsbohC9qYS1DYM7srBbZK6g2G7G_ZI_9NmoOLEye6S7etuN56hFPyQtA',
+  /**
+   * The optional "Ask Tenura AI" box on the Money plan. Off: it needs a paid
+   * ANTHROPIC_API_KEY and the `ai-advisor` Edge Function. The plan itself is free.
+   */
+  aiExplainer: false,
   /** Legal pages show this as their "last updated" date. */
-  policiesUpdated: '2 October 2026',
+  policiesUpdated: '6 October 2026',
 } as const;

@@ -3,12 +3,18 @@ import type {
   Expense,
   ExpenseCategory,
   FinanceData,
+  Income,
+  IncomeKind,
   Installment,
+  Investment,
+  InvestmentKind,
+  InvestmentStatus,
   Liability,
   LiabilityKind,
   Member,
   MemberColor,
   Policy,
+  PremiumFrequency,
 } from './types';
 import { newId } from './sample';
 
@@ -43,6 +49,10 @@ const KINDS: LiabilityKind[] = ['credit_card', 'loan', 'emi', 'bnpl'];
 const NETWORKS: CardNetwork[] = ['visa', 'mastercard', 'rupay', 'amex', 'diners'];
 const CATEGORIES: ExpenseCategory[] = ['housing', 'utilities', 'groceries', 'dining', 'shopping', 'transport', 'health', 'education', 'entertainment', 'other'];
 const LEGACY_CATEGORY: Record<string, ExpenseCategory> = { food_groceries: 'groceries', debt_emi: 'other' };
+const FREQUENCIES: PremiumFrequency[] = ['monthly', 'quarterly', 'half_yearly', 'yearly'];
+const INCOME_KINDS: IncomeKind[] = ['salary', 'business', 'freelance', 'rental', 'pension', 'interest', 'other'];
+const INVESTMENT_KINDS: InvestmentKind[] = ['sip', 'mutual_fund', 'stocks', 'fd', 'rd', 'ppf', 'epf', 'nps', 'gold', 'savings', 'other'];
+const INVESTMENT_STATUSES: InvestmentStatus[] = ['active', 'paused', 'matured', 'closed'];
 
 /**
  * Accepts a Tenura backup (v3) or a v2 export / browser vault from the previous
@@ -174,7 +184,41 @@ export function parseBackup(text: string): ParseResult {
     notes: optStr(p.notes),
   }));
 
-  return { ok: true, legacy: isLegacy, data: { members, liabilities, installments, expenses, policies } };
+  const isoDate = (x: unknown) => (/^\d{4}-\d{2}-\d{2}$/.test(str(x)) ? str(x) : undefined);
+  const freq = (x: unknown) => FREQUENCIES.find((f) => f === x);
+
+  const incomes: Income[] = arr(src.incomes)
+    .map((i) => ({
+      id: remap(i.id),
+      memberId: memberRef(i.memberId),
+      kind: INCOME_KINDS.includes(i.kind as IncomeKind) ? (i.kind as IncomeKind) : 'other',
+      source: str(i.source, 'Income').slice(0, 120) || 'Income',
+      amount: num(i.amount),
+      frequency: freq(i.frequency) ?? 'monthly',
+      isActive: i.isActive !== false,
+      notes: optStr(i.notes),
+    }))
+    .filter((i) => i.amount > 0);
+
+  const investments: Investment[] = arr(src.investments).map((i) => ({
+    id: remap(i.id),
+    memberId: memberRef(i.memberId),
+    kind: INVESTMENT_KINDS.includes(i.kind as InvestmentKind) ? (i.kind as InvestmentKind) : 'other',
+    provider: str(i.provider).slice(0, 120),
+    name: str(i.name, 'Investment').slice(0, 120) || 'Investment',
+    contribution: optNum(i.contribution),
+    frequency: freq(i.frequency),
+    invested: num(i.invested),
+    currentValue: optNum(i.currentValue),
+    interestRate: i.interestRate === undefined ? undefined : num(i.interestRate),
+    startDate: isoDate(i.startDate),
+    maturityDate: isoDate(i.maturityDate),
+    emergencyFund: i.emergencyFund === true,
+    status: INVESTMENT_STATUSES.includes(i.status as InvestmentStatus) ? (i.status as InvestmentStatus) : 'active',
+    notes: optStr(i.notes),
+  }));
+
+  return { ok: true, legacy: isLegacy, data: { members, liabilities, installments, expenses, policies, incomes, investments } };
 }
 
 /** Spreadsheet-friendly export of liabilities. */

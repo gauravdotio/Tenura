@@ -1,5 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import type { Expense, FinanceData, Installment, Liability, Member, Policy } from '../finance/types';
+import type { Expense, FinanceData, Income, Installment, Investment, Liability, Member, Policy } from '../finance/types';
 import type { Mutation } from '../finance/mutations';
 import type { FinanceRepository } from './repository';
 
@@ -107,6 +107,46 @@ const policyToRow = (p: Policy) => ({
   maturity_date: p.maturityDate ?? null, status: p.status, notes: p.notes ?? null,
 });
 
+const incomeFromRow = (r: Row): Income => ({
+  id: String(r.id),
+  memberId: String(r.member_id),
+  kind: r.kind as Income['kind'],
+  source: String(r.source),
+  amount: Number(r.amount),
+  frequency: r.frequency as Income['frequency'],
+  isActive: Boolean(r.is_active),
+  notes: s(r.notes),
+});
+const incomeToRow = (i: Income) => ({
+  id: i.id, member_id: i.memberId, kind: i.kind, source: i.source, amount: i.amount,
+  frequency: i.frequency, is_active: i.isActive, notes: i.notes ?? null,
+});
+
+const investmentFromRow = (r: Row): Investment => ({
+  id: String(r.id),
+  memberId: String(r.member_id),
+  kind: r.kind as Investment['kind'],
+  provider: String(r.provider ?? ''),
+  name: String(r.name),
+  contribution: n(r.contribution),
+  frequency: s(r.frequency) as Investment['frequency'],
+  invested: Number(r.invested),
+  currentValue: n(r.current_value),
+  interestRate: n(r.interest_rate),
+  startDate: s(r.start_date),
+  maturityDate: s(r.maturity_date),
+  emergencyFund: Boolean(r.emergency_fund),
+  status: r.status as Investment['status'],
+  notes: s(r.notes),
+});
+const investmentToRow = (i: Investment) => ({
+  id: i.id, member_id: i.memberId, kind: i.kind, provider: i.provider, name: i.name,
+  contribution: i.contribution ?? null, frequency: i.frequency ?? null, invested: i.invested,
+  current_value: i.currentValue ?? null, interest_rate: i.interestRate ?? null,
+  start_date: i.startDate ?? null, maturity_date: i.maturityDate ?? null,
+  emergency_fund: i.emergencyFund, status: i.status, notes: i.notes ?? null,
+});
+
 // ---------------------------------------------------------------------------
 
 /**
@@ -139,14 +179,16 @@ export class SupabaseRepository implements FinanceRepository {
   async load(): Promise<FinanceData> {
     const h = this.householdId;
     const members = this.db.from('members').select('*').eq('user_id', h).order('created_at');
-    const [m, liabilities, installments, expenses, policies] = await Promise.all([
+    const [m, liabilities, installments, expenses, policies, incomes, investments] = await Promise.all([
       this.shared ? members.eq('id', this.shared.memberId) : members,
       this.db.from('liabilities').select('*').eq('user_id', h).order('created_at', { ascending: false }),
       this.db.from('installments').select('*').eq('user_id', h).order('seq'),
       this.db.from('expenses').select('*').eq('user_id', h).order('spent_on', { ascending: false }),
       this.db.from('policies').select('*').eq('user_id', h).order('created_at', { ascending: false }),
+      this.db.from('incomes').select('*').eq('user_id', h).order('created_at', { ascending: false }),
+      this.db.from('investments').select('*').eq('user_id', h).order('created_at', { ascending: false }),
     ]);
-    for (const r of [m, liabilities, installments, expenses, policies]) {
+    for (const r of [m, liabilities, installments, expenses, policies, incomes, investments]) {
       if (r.error) throw r.error;
     }
     return {
@@ -155,6 +197,8 @@ export class SupabaseRepository implements FinanceRepository {
       installments: installments.data!.map(installmentFromRow),
       expenses: expenses.data!.map(expenseFromRow),
       policies: policies.data!.map(policyFromRow),
+      incomes: incomes.data!.map(incomeFromRow),
+      investments: investments.data!.map(investmentFromRow),
     };
   }
 
@@ -202,6 +246,16 @@ export class SupabaseRepository implements FinanceRepository {
       case 'policy/remove':
         return check(await this.db.from('policies').delete().eq('id', m.id));
 
+      case 'income/upsert':
+        return check(await this.db.from('incomes').upsert(this.own(incomeToRow(m.income))));
+      case 'income/remove':
+        return check(await this.db.from('incomes').delete().eq('id', m.id));
+
+      case 'investment/upsert':
+        return check(await this.db.from('investments').upsert(this.own(investmentToRow(m.investment))));
+      case 'investment/remove':
+        return check(await this.db.from('investments').delete().eq('id', m.id));
+
       case 'data/replace':
         return check(
           await this.db.rpc('replace_my_data', {
@@ -211,6 +265,8 @@ export class SupabaseRepository implements FinanceRepository {
               installments: m.data.installments.map(installmentToRow),
               expenses: m.data.expenses.map(expenseToRow),
               policies: m.data.policies.map(policyToRow),
+              incomes: m.data.incomes.map(incomeToRow),
+              investments: m.data.investments.map(investmentToRow),
             },
           }),
         );

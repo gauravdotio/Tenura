@@ -16,6 +16,8 @@ import { ConvertToEmiForm } from './components/forms/ConvertToEmiForm';
 import { ExpenseForm } from './components/forms/ExpenseForm';
 import { PolicyForm } from './components/forms/PolicyForm';
 import { MemberForm } from './components/forms/MemberForm';
+import { IncomeForm } from './components/forms/IncomeForm';
+import { InvestmentForm } from './components/forms/InvestmentForm';
 import { AuthPage } from './pages/AuthPage';
 import { LandingPage } from './pages/LandingPage';
 import { AboutPage } from './pages/site/AboutPage';
@@ -32,6 +34,10 @@ import { SettingsPage } from './pages/SettingsPage';
 
 // Recharts is the heaviest dependency — only load it when Analytics is opened
 const AnalyticsPage = lazy(() => import('./pages/AnalyticsPage'));
+// The money planner and its sections load on first visit
+const PlannerPage = lazy(() => import('./pages/PlannerPage').then((m) => ({ default: m.PlannerPage })));
+const IncomePage = lazy(() => import('./pages/IncomePage').then((m) => ({ default: m.IncomePage })));
+const InvestmentsPage = lazy(() => import('./pages/InvestmentsPage').then((m) => ({ default: m.InvestmentsPage })));
 
 export default function App() {
   return (
@@ -117,6 +123,27 @@ function Workspace({ path, params }: { path: string; params: URLSearchParams }) 
     case '/app/insurance':
       page = <InsurancePage />;
       break;
+    case '/app/income':
+      page = (
+        <Suspense fallback={<InlineSpinner />}>
+          <IncomePage />
+        </Suspense>
+      );
+      break;
+    case '/app/investments':
+      page = (
+        <Suspense fallback={<InlineSpinner />}>
+          <InvestmentsPage />
+        </Suspense>
+      );
+      break;
+    case '/app/planner':
+      page = (
+        <Suspense fallback={<InlineSpinner />}>
+          <PlannerPage />
+        </Suspense>
+      );
+      break;
     case '/app/analytics':
       page = (
         <Suspense fallback={<InlineSpinner />}>
@@ -155,6 +182,8 @@ function Workspace({ path, params }: { path: string; params: URLSearchParams }) 
       {status === 'ready' && dialog?.type === 'expense' && <ExpenseForm key={dialog.expense?.id ?? 'new'} expense={dialog.expense} onClose={close} />}
       {status === 'ready' && dialog?.type === 'policy' && <PolicyForm key={dialog.policy?.id ?? 'new'} policy={dialog.policy} onClose={close} />}
       {status === 'ready' && dialog?.type === 'member' && <MemberForm key={dialog.member?.id ?? 'new'} member={dialog.member} onClose={close} />}
+      {status === 'ready' && dialog?.type === 'income' && <IncomeForm key={dialog.income?.id ?? 'new'} income={dialog.income} onClose={close} />}
+      {status === 'ready' && dialog?.type === 'investment' && <InvestmentForm key={dialog.investment?.id ?? 'new'} investment={dialog.investment} onClose={close} />}
     </DialogContext.Provider>
   );
 }

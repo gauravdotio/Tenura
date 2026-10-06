@@ -1,4 +1,4 @@
-import type { CardNetwork, ExpenseCategory, LiabilityKind, LiabilityStatus, MemberColor, PremiumFrequency } from './finance/types';
+import type { CardNetwork, ExpenseCategory, IncomeKind, InvestmentKind, InvestmentStatus, LiabilityKind, LiabilityStatus, MemberColor, PremiumFrequency } from './finance/types';
 
 const inr = new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 });
 
@@ -91,4 +91,35 @@ export const NETWORK_LABEL: Record<CardNetwork, string> = {
   rupay: 'RuPay',
   amex: 'American Express',
   diners: 'Diners Club',
+};
+
+export const INCOME_KIND_LABEL: Record<IncomeKind, string> = {
+  salary: 'Salary',
+  business: 'Business',
+  freelance: 'Freelance',
+  rental: 'Rent received',
+  pension: 'Pension',
+  interest: 'Interest & dividends',
+  other: 'Other',
+};
+
+export const INVESTMENT_KIND_LABEL: Record<InvestmentKind, string> = {
+  sip: 'SIP',
+  mutual_fund: 'Mutual fund (lump sum)',
+  stocks: 'Shares',
+  fd: 'Fixed deposit',
+  rd: 'Recurring deposit',
+  ppf: 'PPF',
+  epf: 'EPF / PF',
+  nps: 'NPS',
+  gold: 'Gold',
+  savings: 'Savings account',
+  other: 'Other',
+};
+
+export const INVESTMENT_STATUS_LABEL: Record<InvestmentStatus, string> = {
+  active: 'Active',
+  paused: 'Paused',
+  matured: 'Matured',
+  closed: 'Closed',
 };

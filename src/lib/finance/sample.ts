@@ -1,4 +1,4 @@
-import type { Expense, FinanceData, Installment, Liability, Member, Policy } from './types';
+import type { Expense, FinanceData, Income, Installment, Investment, Liability, Member, Policy } from './types';
 import { addMonthsToDate, addMonthsToKey, toISODate, toMonthKey } from './dates';
 import { buildInstallments, calculateEmi } from './calc';
 
@@ -79,5 +79,25 @@ export function buildSampleData(primaryName: string, today: Date = new Date()): 
     { id: newId(), memberId: sister.id, provider: 'Star Health', name: 'Family Health Optima', premium: 21600, frequency: 'yearly', sumAssured: 1000000, nextDueDate: addMonthsToDate(todayIso, 5), status: 'active', notes: 'Health cover · 80D' },
   ];
 
-  return { members: [me, sister, mom], liabilities, installments, expenses, policies };
+  const incomes: Income[] = [
+    { id: newId(), memberId: me.id, kind: 'salary', source: 'Infosys', amount: 110000, frequency: 'monthly', isActive: true },
+    { id: newId(), memberId: me.id, kind: 'rental', source: 'Flat 2B rent', amount: 14000, frequency: 'monthly', isActive: true },
+    { id: newId(), memberId: sister.id, kind: 'salary', source: 'Deloitte', amount: 68000, frequency: 'monthly', isActive: true },
+    { id: newId(), memberId: mom.id, kind: 'pension', source: 'Family pension', amount: 18000, frequency: 'monthly', isActive: true },
+  ];
+
+  const monthsAgo = (n: number) => addMonthsToDate(todayIso, -n);
+  const inMonths = (n: number) => addMonthsToDate(todayIso, n);
+  const investments: Investment[] = [
+    { id: newId(), memberId: me.id, kind: 'sip', provider: 'Parag Parikh MF', name: 'Flexi Cap Fund — SIP', contribution: 10000, frequency: 'monthly', invested: 0, currentValue: 312000, startDate: monthsAgo(26), emergencyFund: false, status: 'active' },
+    { id: newId(), memberId: me.id, kind: 'fd', provider: 'SBI', name: 'SBI Fixed Deposit', invested: 200000, interestRate: 7.1, startDate: monthsAgo(10), maturityDate: inMonths(2), emergencyFund: false, status: 'active' },
+    { id: newId(), memberId: me.id, kind: 'savings', provider: 'HDFC Bank', name: 'Savings account', invested: 95000, interestRate: 3, emergencyFund: true, status: 'active' },
+    { id: newId(), memberId: me.id, kind: 'epf', provider: 'EPFO', name: 'Provident Fund', contribution: 3600, frequency: 'monthly', invested: 248000, interestRate: 8.25, emergencyFund: false, status: 'active' },
+    { id: newId(), memberId: me.id, kind: 'ppf', provider: 'SBI', name: 'PPF account', invested: 410000, interestRate: 7.1, startDate: monthsAgo(70), maturityDate: inMonths(110), emergencyFund: false, status: 'active' },
+    { id: newId(), memberId: sister.id, kind: 'rd', provider: 'India Post', name: 'Recurring Deposit', contribution: 5000, frequency: 'monthly', invested: 0, interestRate: 6.7, startDate: monthsAgo(14), maturityDate: inMonths(46), emergencyFund: false, status: 'active' },
+    { id: newId(), memberId: mom.id, kind: 'fd', provider: 'Post Office SCSS', name: 'Senior Citizens Savings', invested: 500000, interestRate: 8.2, startDate: monthsAgo(20), maturityDate: inMonths(40), emergencyFund: true, status: 'active' },
+    { id: newId(), memberId: mom.id, kind: 'gold', provider: 'Tanishq', name: 'Gold jewellery & coins', invested: 150000, currentValue: 236000, emergencyFund: false, status: 'active' },
+  ];
+
+  return { members: [me, sister, mom], liabilities, installments, expenses, policies, incomes, investments };
 }

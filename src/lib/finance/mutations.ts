@@ -1,4 +1,4 @@
-import type { Expense, FinanceData, Installment, Liability, Member, Policy } from './types';
+import type { Expense, FinanceData, Income, Installment, Investment, Liability, Member, Policy } from './types';
 
 /**
  * Every change to a household's data is one of these. The UI applies a mutation
@@ -20,6 +20,10 @@ export type Mutation =
   | { type: 'expense/remove'; id: string }
   | { type: 'policy/upsert'; policy: Policy }
   | { type: 'policy/remove'; id: string }
+  | { type: 'income/upsert'; income: Income }
+  | { type: 'income/remove'; id: string }
+  | { type: 'investment/upsert'; investment: Investment }
+  | { type: 'investment/remove'; id: string }
   | { type: 'data/replace'; data: FinanceData };
 
 function upsert<T extends { id: string }>(list: T[], item: T, prepend = false): T[] {
@@ -44,6 +48,8 @@ export function applyMutation(data: FinanceData, m: Mutation): FinanceData {
         liabilities: data.liabilities.map(move),
         expenses: data.expenses.map(move),
         policies: data.policies.map(move),
+        incomes: data.incomes.map(move),
+        investments: data.investments.map(move),
       };
     }
 
@@ -78,6 +84,16 @@ export function applyMutation(data: FinanceData, m: Mutation): FinanceData {
       return { ...data, policies: upsert(data.policies, m.policy, true) };
     case 'policy/remove':
       return { ...data, policies: data.policies.filter((p) => p.id !== m.id) };
+
+    case 'income/upsert':
+      return { ...data, incomes: upsert(data.incomes, m.income, true) };
+    case 'income/remove':
+      return { ...data, incomes: data.incomes.filter((x) => x.id !== m.id) };
+
+    case 'investment/upsert':
+      return { ...data, investments: upsert(data.investments, m.investment, true) };
+    case 'investment/remove':
+      return { ...data, investments: data.investments.filter((x) => x.id !== m.id) };
 
     case 'data/replace':
       return m.data;

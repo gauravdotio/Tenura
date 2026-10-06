@@ -11,7 +11,9 @@ import {
   EMPTY_DATA,
   type Expense,
   type FinanceData,
+  type Income,
   type Installment,
+  type Investment,
   type Liability,
   type Member,
   type MemberScope,
@@ -65,6 +67,12 @@ interface FinanceContextValue {
   savePolicy(policy: Policy): Promise<void>;
   removePolicy(id: string): Promise<void>;
   payPremium(id: string): Promise<void>;
+
+  saveIncome(income: Income): Promise<void>;
+  removeIncome(id: string): Promise<void>;
+
+  saveInvestment(investment: Investment): Promise<void>;
+  removeInvestment(id: string): Promise<void>;
 
   replaceData(data: FinanceData): Promise<void>;
   clearAllData(): Promise<void>;
@@ -292,6 +300,32 @@ export function FinanceProvider({ user, shared, children }: { user: AuthUser; sh
     [dispatch, toast],
   );
 
+  // ---- income & investments -----------------------------------------------
+
+  const saveIncome = useCallback((income: Income) => dispatch({ type: 'income/upsert', income }), [dispatch]);
+  const removeIncome = useCallback(
+    async (id: string) => {
+      const removed = dataRef.current.incomes.find((x) => x.id === id);
+      await dispatch({ type: 'income/remove', id });
+      if (removed) {
+        toast.success('Income removed', { label: 'Undo', onClick: () => void dispatch({ type: 'income/upsert', income: removed }) });
+      }
+    },
+    [dispatch, toast],
+  );
+
+  const saveInvestment = useCallback((investment: Investment) => dispatch({ type: 'investment/upsert', investment }), [dispatch]);
+  const removeInvestment = useCallback(
+    async (id: string) => {
+      const removed = dataRef.current.investments.find((x) => x.id === id);
+      await dispatch({ type: 'investment/remove', id });
+      if (removed) {
+        toast.success('Investment removed', { label: 'Undo', onClick: () => void dispatch({ type: 'investment/upsert', investment: removed }) });
+      }
+    },
+    [dispatch, toast],
+  );
+
   // ---- whole-household operations ------------------------------------------
 
   const replaceData = useCallback((next: FinanceData) => dispatch({ type: 'data/replace', data: next }), [dispatch]);
@@ -322,6 +356,7 @@ export function FinanceProvider({ user, shared, children }: { user: AuthUser; sh
     saveLiability, removeLiability, convertToEmi, setInstallmentPaid, markCardPaid,
     saveExpense, removeExpense,
     savePolicy, removePolicy, payPremium,
+    saveIncome, removeIncome, saveInvestment, removeInvestment,
     replaceData, clearAllData,
     shared,
   };

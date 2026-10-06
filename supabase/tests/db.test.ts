@@ -176,6 +176,43 @@ describe('a linked member', () => {
   });
 });
 
+describe('income & investments', () => {
+  it('follow the same rules: the owner sees all, the linked member only their own', async () => {
+    await as(OWNER, `insert into incomes (member_id, kind, source, amount) values ($1, 'salary', 'Infosys', 110000), ($2, 'salary', 'Deloitte', 68000)`, [ownerPrimary, didi]);
+    await as(OWNER, `insert into investments (member_id, kind, name, invested, interest_rate) values ($1, 'fd', 'SBI FD', 200000, 7.1), ($2, 'rd', 'Post RD', 0, 6.7)`, [ownerPrimary, didi]);
+    expect((await as<{ source: string }>(SISTER, `select source from incomes`)).map((r) => r.source)).toEqual(['Deloitte']);
+    expect((await as<{ name: string }>(SISTER, `select name from investments`)).map((r) => r.name)).toEqual(['Post RD']);
+    expect(await as(OWNER, `select * from incomes`)).toHaveLength(2);
+  });
+
+  it('the linked member can add to their own profile only', async () => {
+    await as(SISTER, `insert into investments (user_id, member_id, kind, name, contribution, frequency) values ($1, $2, 'sip', 'Index SIP', 5000, 'monthly')`, [OWNER, didi]);
+    expect(await asFails(SISTER, `insert into incomes (user_id, member_id, kind, source, amount) values ($1, $2, 'salary', 'Sneaky', 1)`, [OWNER, ownerPrimary])).toBe(true);
+    expect(await asFails(SISTER, `update investments set member_id = $1 where name = 'Index SIP'`, [ownerPrimary])).toBe(true);
+    await as(SISTER, `delete from investments where name = 'SBI FD'`);
+    expect(await as(OWNER, `select * from investments where name = 'SBI FD'`)).toHaveLength(1);
+  });
+
+  it('rejects bad values and strangers', async () => {
+    expect(await asFails(OWNER, `insert into incomes (member_id, kind, source, amount) values ($1, 'salary', 'Zero', 0)`, [ownerPrimary])).toBe(true);
+    expect(await asFails(OWNER, `insert into investments (member_id, kind, name, invested) values ($1, 'crypto', 'X', 1)`, [ownerPrimary])).toBe(true);
+    expect(await asFails(STRANGER, `insert into incomes (member_id, kind, source, amount) values ($1, 'salary', 'X', 1)`, [ownerPrimary])).toBe(true);
+    expect(await as(STRANGER, `select * from investments where user_id = $1`, [OWNER])).toHaveLength(0);
+  });
+
+  it('move to another member when a member is removed', async () => {
+    const temp = (await as<{ id: string }>(OWNER, `insert into members (name, relation) values ('Temp', 'Other') returning id`))[0].id;
+    await as(OWNER, `insert into incomes (member_id, kind, source, amount) values ($1, 'rental', 'Shop rent', 9000)`, [temp]);
+    await as(OWNER, `select remove_member($1, $2)`, [temp, ownerPrimary]);
+    expect((await as<{ member_id: string }>(OWNER, `select member_id from incomes where source = 'Shop rent'`))[0].member_id).toBe(ownerPrimary);
+  });
+
+  it('the AI usage log is server-only', async () => {
+    expect(await asFails(OWNER, `select * from ai_usage`)).toBe(true);
+    expect(await asFails(OWNER, `insert into ai_usage (user_id) values ($1)`, [OWNER])).toBe(true);
+  });
+});
+
 describe('reminders', () => {
   it('lists due items for the owner (everything) and the linked member (their own)', async () => {
     const rows = await as<{ recipient_id: string; title: string; due_date: string; kind: string }>('service',
@@ -243,6 +280,19 @@ describe('unlinking & restore', () => {
     };
     await as(OWNER, `select replace_my_data($1::jsonb)`, [JSON.stringify(payload)]);
     expect((await as<{ name: string }>(SISTER, `select name from members where user_id = $1`, [OWNER])).map((r) => r.name)).toEqual(['Didi']);
+  });
+
+  it('a restore brings back income and investments', async () => {
+    const members = await as<{ id: string; is_primary: boolean }>(OWNER, `select id, name, relation, color, monthly_budget, is_primary, email, phone from members`);
+    const me = members.find((m) => m.is_primary)!.id;
+    const payload = {
+      members, liabilities: [], installments: [], expenses: [], policies: [],
+      incomes: [{ id: '00000000-0000-4000-8000-0000000000f1', member_id: me, kind: 'salary', source: 'Infosys', amount: 110000, frequency: 'monthly', is_active: true }],
+      investments: [{ id: '00000000-0000-4000-8000-0000000000f2', member_id: me, kind: 'ppf', provider: 'SBI', name: 'PPF', invested: 410000, interest_rate: 7.1, emergency_fund: false, status: 'active' }],
+    };
+    await as(OWNER, `select replace_my_data($1::jsonb)`, [JSON.stringify(payload)]);
+    expect((await as<{ source: string }>(OWNER, `select source from incomes`)).map((r) => r.source)).toEqual(['Infosys']);
+    expect((await as<{ name: string }>(OWNER, `select name from investments`)).map((r) => r.name)).toEqual(['PPF']);
   });
 
   it('after unlinking, the member’s login sees nothing', async () => {

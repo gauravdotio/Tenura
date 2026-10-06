@@ -112,12 +112,58 @@ export interface Policy {
   notes?: string;
 }
 
+export type IncomeKind = 'salary' | 'business' | 'freelance' | 'rental' | 'pension' | 'interest' | 'other';
+
+export interface Income {
+  id: string;
+  memberId: string;
+  kind: IncomeKind;
+  /** Employer, business or tenant — "Infosys", "Shop", "Flat 2B rent". */
+  source: string;
+  /** Take-home amount per payment, after tax. */
+  amount: number;
+  frequency: PremiumFrequency;
+  isActive: boolean;
+  notes?: string;
+}
+
+export type InvestmentKind = 'sip' | 'mutual_fund' | 'stocks' | 'fd' | 'rd' | 'ppf' | 'epf' | 'nps' | 'gold' | 'savings' | 'other';
+export type InvestmentStatus = 'active' | 'paused' | 'matured' | 'closed';
+
+export interface Investment {
+  id: string;
+  memberId: string;
+  kind: InvestmentKind;
+  /** Bank, AMC, broker or scheme — "SBI", "Parag Parikh", "Zerodha". */
+  provider: string;
+  name: string;
+  /** Recurring amount (SIP, RD, PPF, NPS, EPF), paid every `frequency`. */
+  contribution?: number;
+  frequency?: PremiumFrequency;
+  /** Total put in so far. For recurring plans it can be left out and is estimated from the start date. */
+  invested: number;
+  /** Latest value, if the user knows it (market-linked investments). */
+  currentValue?: number;
+  /** Annual rate in percent: FD/RD/PPF interest, or expected return. */
+  interestRate?: number;
+  /** YYYY-MM-DD */
+  startDate?: string;
+  /** YYYY-MM-DD */
+  maturityDate?: string;
+  /** Kept aside for emergencies — the planner won't suggest using it to repay debt. */
+  emergencyFund: boolean;
+  status: InvestmentStatus;
+  notes?: string;
+}
+
 export interface FinanceData {
   members: Member[];
   liabilities: Liability[];
   installments: Installment[];
   expenses: Expense[];
   policies: Policy[];
+  incomes: Income[];
+  investments: Investment[];
 }
 
 export const EMPTY_DATA: FinanceData = {
@@ -126,6 +172,8 @@ export const EMPTY_DATA: FinanceData = {
   installments: [],
   expenses: [],
   policies: [],
+  incomes: [],
+  investments: [],
 };
 
 /** 'all' = whole household. */

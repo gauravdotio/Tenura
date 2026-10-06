@@ -46,7 +46,7 @@ export function PrivacyPage() {
         <h2 id="collect">1. What we collect</h2>
         <ul>
           <li><strong>Account details</strong> — your name, email address and a password (stored only as a secure hash by our authentication provider; we never see it).</li>
-          <li><strong>What you enter</strong> — the loans, cards, EMI schedules, expenses, insurance policies and family members you add. You decide what goes in.</li>
+          <li><strong>What you enter</strong> — the loans, cards, EMI schedules, expenses, income, investments, insurance policies and family members you add. You decide what goes in.</li>
           <li><strong>Messages you send us</strong> — through the contact form: your name, email and message.</li>
           <li><strong>Basic technical logs</strong> — our hosting providers keep standard request logs (such as IP address and browser type) for security and reliability.</li>
         </ul>
@@ -59,7 +59,12 @@ export function PrivacyPage() {
         <p>Your data is stored in a Postgres database run by Supabase, and the site is served by Vercel. Every table is protected with row-level security, so each record can only be read or changed by the account that owns it. See the <a href={href('/security')}>security page</a> for details.</p>
 
         <h2 id="share">4. Who we share it with</h2>
-        <p>Nobody, except the infrastructure providers above, which process data only to host the service. We never sell or rent personal data. We would only disclose information if required by law.</p>
+        <p>Nobody, except service providers that process data only to run Tenura for you:</p>
+        <ul>
+          <li><strong>Supabase and Vercel</strong> — hosting and the database, as above.</li>
+          <li><strong>Resend</strong> — sends the reminder emails you switch on (your email address and the payments being reminded about).</li>
+        </ul>
+        <p>We never sell or rent personal data. We would only disclose information if required by law.</p>
 
         <h2 id="local">5. Cookies & local storage</h2>
         <p>Tenura doesn’t use advertising or tracking cookies. Your browser’s local storage keeps your sign-in session and preferences such as theme.</p>
