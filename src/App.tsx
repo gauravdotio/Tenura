@@ -1,4 +1,5 @@
-import { lazy, Suspense, useCallback, useEffect, useState, type ReactNode } from 'react';
+import { Component, Suspense, useCallback, useEffect, useState, type ReactNode } from 'react';
+import { lazyPage } from './lib/lazyPage';
 import { AlertTriangle, Loader2 } from 'lucide-react';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { FinanceProvider, useFinance } from './context/FinanceContext';
@@ -33,11 +34,12 @@ import { HouseholdPage } from './pages/HouseholdPage';
 import { SettingsPage } from './pages/SettingsPage';
 
 // Recharts is the heaviest dependency — only load it when Analytics is opened
-const AnalyticsPage = lazy(() => import('./pages/AnalyticsPage'));
+const AnalyticsPage = lazyPage(() => import('./pages/AnalyticsPage').then((m) => m.default));
 // The money planner and its sections load on first visit
-const PlannerPage = lazy(() => import('./pages/PlannerPage').then((m) => ({ default: m.PlannerPage })));
-const IncomePage = lazy(() => import('./pages/IncomePage').then((m) => ({ default: m.IncomePage })));
-const InvestmentsPage = lazy(() => import('./pages/InvestmentsPage').then((m) => ({ default: m.InvestmentsPage })));
+const PlannerPage = lazyPage(() => import('./pages/PlannerPage').then((m) => m.PlannerPage));
+const IncomePage = lazyPage(() => import('./pages/IncomePage').then((m) => m.IncomePage));
+const InvestmentsPage = lazyPage(() => import('./pages/InvestmentsPage').then((m) => m.InvestmentsPage));
+const LAZY_PAGES = [PlannerPage, IncomePage, InvestmentsPage, AnalyticsPage];
 
 export default function App() {
   return (
@@ -106,6 +108,13 @@ function Workspace({ path, params }: { path: string; params: URLSearchParams }) 
   const [dialog, setDialog] = useState<Dialog | null>(null);
   const close = useCallback(() => setDialog(null), []);
 
+  // Fetch the on-demand pages in the background once the app is up, so opening them is instant
+  useEffect(() => {
+    if (status !== 'ready') return;
+    const t = setTimeout(() => LAZY_PAGES.forEach((p) => void p.preload().catch(() => {})), 1500);
+    return () => clearTimeout(t);
+  }, [status]);
+
   let page: ReactNode;
   switch (path) {
     case '/app':
@@ -124,32 +133,16 @@ function Workspace({ path, params }: { path: string; params: URLSearchParams }) 
       page = <InsurancePage />;
       break;
     case '/app/income':
-      page = (
-        <Suspense fallback={<InlineSpinner />}>
-          <IncomePage />
-        </Suspense>
-      );
+      page = <IncomePage />;
       break;
     case '/app/investments':
-      page = (
-        <Suspense fallback={<InlineSpinner />}>
-          <InvestmentsPage />
-        </Suspense>
-      );
+      page = <InvestmentsPage />;
       break;
     case '/app/planner':
-      page = (
-        <Suspense fallback={<InlineSpinner />}>
-          <PlannerPage />
-        </Suspense>
-      );
+      page = <PlannerPage />;
       break;
     case '/app/analytics':
-      page = (
-        <Suspense fallback={<InlineSpinner />}>
-          <AnalyticsPage />
-        </Suspense>
-      );
+      page = <AnalyticsPage />;
       break;
     case '/app/household':
       // Only the account holder manages household members
@@ -174,7 +167,11 @@ function Workspace({ path, params }: { path: string; params: URLSearchParams }) 
             <Button className="mt-5" onClick={retry}>Try again</Button>
           </div>
         )}
-        {status === 'ready' && page}
+        {status === 'ready' && (
+          <PageBoundary key={path}>
+            <Suspense fallback={<InlineSpinner />}>{page}</Suspense>
+          </PageBoundary>
+        )}
       </AppShell>
 
       {status === 'ready' && dialog?.type === 'liability' && <LiabilityForm key={dialog.liability?.id ?? 'new'} liability={dialog.liability} onClose={close} />}
@@ -203,6 +200,28 @@ function FullScreenSpinner() {
       <Loader2 className="h-5 w-5 animate-spin text-ink-faint" />
     </div>
   );
+}
+
+/** If a page fails to load or crashes, say so instead of spinning forever. */
+class PageBoundary extends Component<{ children: ReactNode }, { failed: boolean }> {
+  state = { failed: false };
+  static getDerivedStateFromError() {
+    return { failed: true };
+  }
+  componentDidCatch(error: unknown) {
+    console.error('Page failed', error);
+  }
+  render() {
+    if (!this.state.failed) return this.props.children;
+    return (
+      <div className="flex flex-col items-center py-24 text-center">
+        <AlertTriangle className="h-6 w-6 text-warning" />
+        <h1 className="mt-3 text-lg font-semibold text-ink">This page didn’t load</h1>
+        <p className="mt-1 max-w-sm text-sm text-ink-muted">Tenura may have just been updated. Reload to get the latest version — your data is safe.</p>
+        <Button className="mt-5" onClick={() => window.location.reload()}>Reload</Button>
+      </div>
+    );
+  }
 }
 
 function InlineSpinner() {
