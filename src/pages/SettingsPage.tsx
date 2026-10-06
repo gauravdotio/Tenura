@@ -1,5 +1,5 @@
 import { useMemo, useRef, useState, type FormEvent, type ReactNode } from 'react';
-import { AlertTriangle, Archive, Cloud, Download, FileJson, HardDrive, Monitor, Moon, Palette, Sun, Upload, UserRound } from 'lucide-react';
+import { AlertTriangle, Archive, BellRing, Cloud, Download, FileJson, HardDrive, Monitor, Moon, Palette, Sun, Upload, UserRound } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useFinance } from '../context/FinanceContext';
 import { useTheme } from '../context/ThemeContext';
@@ -13,6 +13,7 @@ import { navigate } from '../lib/router';
 import { pluralize } from '../lib/format';
 import { Button, Card, ConfirmDialog, Field, Input, PageHeader, Segmented, cx } from '../components/ui';
 import type { Tint } from '../components/Visuals';
+import { NotificationSettingsPanel } from '../components/NotificationSettings';
 
 const TINTS: Record<Tint, string> = {
   accent: 'bg-accent-soft text-accent',
@@ -37,7 +38,7 @@ function Section({ title, description, icon, tint = 'neutral', children }: { tit
 
 export function SettingsPage() {
   const { user, updateName, deleteAccount } = useAuth();
-  const { data, storage, installmentsByLiability, replaceData, clearAllData } = useFinance();
+  const { data, storage, installmentsByLiability, replaceData, clearAllData, shared } = useFinance();
   const { theme, setTheme } = useTheme();
   const toast = useToast();
   const fileRef = useRef<HTMLInputElement>(null);
@@ -112,6 +113,10 @@ export function SettingsPage() {
         </form>
       </Section>
 
+      <Section title="Reminders" description="Get a nudge before every EMI, card bill and premium — for you, and for anyone you’ve linked." icon={<BellRing />} tint="warning">
+        <NotificationSettingsPanel />
+      </Section>
+
       <Section title="Appearance" icon={<Palette />} tint="warning">
         <Segmented
           value={theme}
@@ -144,7 +149,7 @@ export function SettingsPage() {
         <div className="flex flex-wrap gap-2">
           <Button icon={<Download className="h-4 w-4" />} onClick={exportJson}>Export backup (.json)</Button>
           <Button icon={<Download className="h-4 w-4" />} onClick={exportCsv}>Export loans (.csv)</Button>
-          <Button icon={<Upload className="h-4 w-4" />} onClick={() => fileRef.current?.click()}>Restore from backup…</Button>
+          {!shared && <Button icon={<Upload className="h-4 w-4" />} onClick={() => fileRef.current?.click()}>Restore from backup…</Button>}
           <input
             ref={fileRef}
             type="file"
@@ -159,7 +164,7 @@ export function SettingsPage() {
         </div>
         <p className="mt-3 text-xs text-ink-faint">Backups from the previous version of Tenura can be restored too.</p>
 
-        {legacy.length > 0 && (
+        {!shared && legacy.length > 0 && (
           <div className="mt-5 rounded-xl border border-line p-4">
             <p className="flex items-center gap-2 text-sm font-medium text-ink"><FileJson className="h-4 w-4 text-ink-faint" /> Data from the previous version found in this browser</p>
             <ul className="mt-3 space-y-2">
@@ -176,7 +181,7 @@ export function SettingsPage() {
 
       <Section title="Danger zone" description="These can’t be undone." icon={<AlertTriangle />} tint="negative">
         <div className="flex flex-wrap gap-2">
-          <Button className="text-negative hover:text-negative" onClick={() => setConfirm('clear')}>Clear all data…</Button>
+          {!shared && <Button className="text-negative hover:text-negative" onClick={() => setConfirm('clear')}>Clear all data…</Button>}
           <Button variant="danger" onClick={() => setConfirm('delete')}>Delete my account…</Button>
         </div>
       </Section>

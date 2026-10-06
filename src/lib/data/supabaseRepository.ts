@@ -18,10 +18,17 @@ const memberFromRow = (r: Row): Member => ({
   color: r.color as Member['color'],
   monthlyBudget: Number(r.monthly_budget),
   isPrimary: Boolean(r.is_primary),
+  email: s(r.email),
+  phone: s(r.phone),
+  linkedUserId: s(r.linked_user_id),
+  inviteCode: s(r.invite_code),
+  inviteExpiresAt: s(r.invite_expires_at),
 });
+// Login link and invite columns are managed by database functions, never written directly
 const memberToRow = (m: Member) => ({
   id: m.id, name: m.name, relation: m.relation, color: m.color,
   monthly_budget: m.monthlyBudget, is_primary: m.isPrimary,
+  email: m.email ?? null, phone: m.phone ?? null,
 });
 
 const liabilityFromRow = (r: Row): Liability => ({
@@ -103,30 +110,47 @@ const policyToRow = (p: Policy) => ({
 // ---------------------------------------------------------------------------
 
 /**
- * Persists to Postgres through Supabase. Row-level security scopes every query
- * to the signed-in user; `user_id` defaults to auth.uid() on insert.
+ * Persists to Postgres through Supabase. Row-level security scopes every query.
+ *
+ * - Own household (default): reads and writes rows owned by the signed-in user.
+ * - Shared profile (`shared` set): a linked family member working on their own
+ *   profile inside someone else's household. Rows are read from, and written to,
+ *   the owner's household; the database only allows that one member's rows.
  */
+export interface SharedProfile {
+  ownerId: string;
+  memberId: string;
+}
+
 export class SupabaseRepository implements FinanceRepository {
   readonly kind = 'supabase';
   private readonly db: SupabaseClient;
+  private readonly householdId: string;
+  private readonly shared?: SharedProfile;
 
-  constructor(db: SupabaseClient) {
+  constructor(db: SupabaseClient, userId: string, shared?: SharedProfile) {
     this.db = db;
+    this.shared = shared;
+    // Always filter by household: a linked member can also read rows of the
+    // household they were invited into, which must not leak into their own.
+    this.householdId = shared?.ownerId ?? userId;
   }
 
   async load(): Promise<FinanceData> {
-    const [members, liabilities, installments, expenses, policies] = await Promise.all([
-      this.db.from('members').select('*').order('created_at'),
-      this.db.from('liabilities').select('*').order('created_at', { ascending: false }),
-      this.db.from('installments').select('*').order('seq'),
-      this.db.from('expenses').select('*').order('spent_on', { ascending: false }),
-      this.db.from('policies').select('*').order('created_at', { ascending: false }),
+    const h = this.householdId;
+    const members = this.db.from('members').select('*').eq('user_id', h).order('created_at');
+    const [m, liabilities, installments, expenses, policies] = await Promise.all([
+      this.shared ? members.eq('id', this.shared.memberId) : members,
+      this.db.from('liabilities').select('*').eq('user_id', h).order('created_at', { ascending: false }),
+      this.db.from('installments').select('*').eq('user_id', h).order('seq'),
+      this.db.from('expenses').select('*').eq('user_id', h).order('spent_on', { ascending: false }),
+      this.db.from('policies').select('*').eq('user_id', h).order('created_at', { ascending: false }),
     ]);
-    for (const r of [members, liabilities, installments, expenses, policies]) {
+    for (const r of [m, liabilities, installments, expenses, policies]) {
       if (r.error) throw r.error;
     }
     return {
-      members: members.data!.map(memberFromRow),
+      members: m.data!.map(memberFromRow),
       liabilities: liabilities.data!.map(liabilityFromRow),
       installments: installments.data!.map(installmentFromRow),
       expenses: expenses.data!.map(expenseFromRow),
@@ -134,10 +158,18 @@ export class SupabaseRepository implements FinanceRepository {
     };
   }
 
+  /** In shared mode, new rows must be filed under the owner's household. */
+  private own<T extends object>(row: T): T & { user_id?: string } {
+    return this.shared ? { ...row, user_id: this.shared.ownerId } : row;
+  }
+
   async apply(m: Mutation): Promise<void> {
     const check = ({ error }: { error: unknown }) => {
       if (error) throw error;
     };
+    if (this.shared && (m.type === 'member/upsert' || m.type === 'member/remove' || m.type === 'data/replace')) {
+      throw new Error('Only the account holder can change household members or restore backups.');
+    }
 
     switch (m.type) {
       case 'member/upsert':
@@ -146,11 +178,11 @@ export class SupabaseRepository implements FinanceRepository {
         return check(await this.db.rpc('remove_member', { p_member: m.id, p_reassign_to: m.reassignTo }));
 
       case 'liability/upsert':
-        check(await this.db.from('liabilities').upsert(liabilityToRow(m.liability)));
+        check(await this.db.from('liabilities').upsert(this.own(liabilityToRow(m.liability))));
         if (m.installments !== undefined) {
           check(await this.db.from('installments').delete().eq('liability_id', m.liability.id));
           if (m.installments?.length) {
-            check(await this.db.from('installments').insert(m.installments.map(installmentToRow)));
+            check(await this.db.from('installments').insert(m.installments.map((i) => this.own(installmentToRow(i)))));
           }
         }
         return;
@@ -161,12 +193,12 @@ export class SupabaseRepository implements FinanceRepository {
         return check(await this.db.from('installments').update({ paid_on: m.paidOn }).eq('id', m.id));
 
       case 'expense/upsert':
-        return check(await this.db.from('expenses').upsert(expenseToRow(m.expense)));
+        return check(await this.db.from('expenses').upsert(this.own(expenseToRow(m.expense))));
       case 'expense/remove':
         return check(await this.db.from('expenses').delete().eq('id', m.id));
 
       case 'policy/upsert':
-        return check(await this.db.from('policies').upsert(policyToRow(m.policy)));
+        return check(await this.db.from('policies').upsert(this.own(policyToRow(m.policy))));
       case 'policy/remove':
         return check(await this.db.from('policies').delete().eq('id', m.id));
 

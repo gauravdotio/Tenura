@@ -68,12 +68,25 @@ interface FinanceContextValue {
 
   replaceData(data: FinanceData): Promise<void>;
   clearAllData(): Promise<void>;
+
+  /** Set when a linked family member is viewing their profile in someone else's household. */
+  shared?: SharedWorkspace;
+}
+
+/** A profile someone else shared with the signed-in user. */
+export interface SharedWorkspace {
+  ownerId: string;
+  ownerName: string;
+  memberId: string;
+  memberName: string;
 }
 
 const FinanceContext = createContext<FinanceContextValue | null>(null);
 
-function repositoryFor(user: AuthUser): FinanceRepository {
-  if (user.mode === 'supabase' && supabase) return new SupabaseRepository(supabase);
+function repositoryFor(user: AuthUser, shared?: SharedWorkspace): FinanceRepository {
+  if (user.mode === 'supabase' && supabase) {
+    return new SupabaseRepository(supabase, user.id, shared && { ownerId: shared.ownerId, memberId: shared.memberId });
+  }
   return new LocalRepository(user.id);
 }
 
@@ -84,10 +97,10 @@ const celebrate = () =>
  * Owns one user's household data. Mount it with `key={user.id}` so signing out
  * or switching accounts throws away all in-memory state.
  */
-export function FinanceProvider({ user, children }: { user: AuthUser; children: ReactNode }) {
+export function FinanceProvider({ user, shared, children }: { user: AuthUser; shared?: SharedWorkspace; children: ReactNode }) {
   const toast = useToast();
-  // The provider is keyed by user id, so the repository is fixed for its lifetime
-  const [repo] = useState(() => repositoryFor(user));
+  // The provider is keyed by user + workspace, so the repository is fixed for its lifetime
+  const [repo] = useState(() => repositoryFor(user, shared));
   const nameRef = useRef(user.name);
   useLayoutEffect(() => {
     nameRef.current = user.name;
@@ -128,7 +141,7 @@ export function FinanceProvider({ user, children }: { user: AuthUser; children: 
       .load()
       .then(async (loaded) => {
         let next = loaded;
-        if (!next.members.some((m) => m.isPrimary)) {
+        if (!shared && !next.members.some((m) => m.isPrimary)) {
           const self = primaryMember(nameRef.current);
           await repo.apply({ type: 'member/upsert', member: self });
           next = applyMutation(next, { type: 'member/upsert', member: self });
@@ -144,7 +157,7 @@ export function FinanceProvider({ user, children }: { user: AuthUser; children: 
     return () => {
       cancelled = true;
     };
-  }, [repo, attempt]);
+  }, [repo, attempt, shared]);
 
   // A deleted member may still be the stored scope — fall back to the whole household
   const scope: MemberScope =
@@ -295,7 +308,8 @@ export function FinanceProvider({ user, children }: { user: AuthUser; children: 
   const summary = useMemo(() => summarize(scoped), [scoped]);
   const installmentsByLiability = useMemo(() => groupInstallments(data.installments), [data.installments]);
   const memberMap = useMemo(() => new Map(data.members.map((m) => [m.id, m])), [data.members]);
-  const primary = useMemo(() => data.members.find((m) => m.isPrimary), [data.members]);
+  // In a shared profile there is exactly one member: theirs. Forms default to it.
+  const primary = useMemo(() => data.members.find((m) => m.isPrimary) ?? (shared ? data.members[0] : undefined), [data.members, shared]);
   const retry = useCallback(() => {
     setStatus('loading');
     setAttempt((a) => a + 1);
@@ -309,6 +323,7 @@ export function FinanceProvider({ user, children }: { user: AuthUser; children: 
     saveExpense, removeExpense,
     savePolicy, removePolicy, payPremium,
     replaceData, clearAllData,
+    shared,
   };
 
   return <FinanceContext.Provider value={value}>{children}</FinanceContext.Provider>;

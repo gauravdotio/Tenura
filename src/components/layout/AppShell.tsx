@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import {
+  Home,
   BarChart3,
   CalendarClock,
   ChevronsUpDown,
@@ -22,6 +23,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useFinance } from '../../context/FinanceContext';
 import { useTheme, type ThemePref } from '../../context/ThemeContext';
 import { useOpenDialog } from '../../context/DialogContext';
+import { useWorkspace } from '../../context/WorkspaceContext';
 import { href, navigate } from '../../lib/router';
 import { Button, MemberAvatar, cx } from '../ui';
 import { Logo } from './Logo';
@@ -83,6 +85,7 @@ export function AppShell({ path, children }: { path: string; children: ReactNode
         </header>
 
 
+        <SharedBanner />
         <main id="main" className="mx-auto w-full max-w-6xl flex-1 px-4 pb-16 pt-6 sm:px-6 lg:px-10 lg:pt-10">
           {children}
         </main>
@@ -92,17 +95,21 @@ export function AppShell({ path, children }: { path: string; children: ReactNode
 }
 
 function Sidebar({ path }: { path: string }) {
+  const { shared } = useFinance();
+  // Members of a shared profile don't manage the household
+  const nav = shared ? NAV.filter((n) => n.to !== '/app/household') : NAV;
   return (
     <>
       <div className="flex h-16 items-center px-5">
         <Logo to="/app" />
       </div>
-      <div className="px-3">
-        <ScopeSwitcher />
+      <div className="space-y-2 px-3">
+        <WorkspaceSwitcher />
+        {!shared && <ScopeSwitcher />}
       </div>
       <nav className="mt-4 flex-1 overflow-y-auto px-3" aria-label="Main">
         <ul className="space-y-0.5">
-          {NAV.map(({ to, label, icon: Icon }) => {
+          {nav.map(({ to, label, icon: Icon }) => {
             const active = to === '/app' ? path === '/app' : path.startsWith(to);
             return (
               <li key={to}>
@@ -129,6 +136,76 @@ function Sidebar({ path }: { path: string }) {
         <UserMenu path={path} />
       </div>
     </>
+  );
+}
+
+/** Shown once someone has shared a profile with this user: switch between their own household and shared ones. */
+function WorkspaceSwitcher() {
+  const { user } = useAuth();
+  const { sharedProfiles, active, switchTo } = useWorkspace();
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  useOutsideClose(ref, open, () => setOpen(false));
+  if (!sharedProfiles.length) return null;
+
+  const options = [
+    { id: 'own', label: 'Your household', sub: user?.name ?? '' },
+    ...sharedProfiles.map((p) => ({ id: p.memberId, label: `${p.ownerName.split(' ')[0]}’s household`, sub: `Your profile: ${p.memberName}` })),
+  ];
+  const current = options.find((o) => o.id === (active?.memberId ?? 'own'))!;
+
+  return (
+    <div ref={ref} className="relative">
+      <button
+        onClick={() => setOpen((o) => !o)}
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        aria-label="Switch household"
+        className={cx(
+          'flex w-full items-center gap-2.5 rounded-xl border px-2.5 py-2 text-left shadow-card transition-colors',
+          active ? 'border-accent/40 bg-accent-soft hover:border-accent' : 'border-line bg-surface hover:border-line-strong',
+        )}
+      >
+        <span className={cx('flex h-7 w-7 items-center justify-center rounded-lg', active ? 'bg-accent text-white' : 'bg-surface-sunken text-ink-muted')}>
+          <Home className="h-3.5 w-3.5" />
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="block text-[11px] font-medium uppercase tracking-wide text-ink-faint">Household</span>
+          <span className="block truncate text-sm font-semibold text-ink">{current.label}</span>
+        </span>
+        <ChevronsUpDown className="h-4 w-4 text-ink-faint" aria-hidden />
+      </button>
+      {open && (
+        <div className="absolute inset-x-0 top-full z-30 mt-1.5 animate-fade-in rounded-xl border border-line bg-surface-raised p-1.5 shadow-lg" role="listbox" aria-label="Choose a household">
+          {options.map((o) => (
+            <button
+              key={o.id}
+              role="option"
+              aria-selected={current.id === o.id}
+              onClick={() => {
+                setOpen(false);
+                switchTo(o.id);
+                navigate('/app');
+              }}
+              className={cx('block w-full rounded-lg px-2.5 py-2 text-left hover:bg-surface-sunken', current.id === o.id && 'bg-surface-sunken')}
+            >
+              <span className="block text-sm font-medium text-ink">{o.label}</span>
+              <span className="block truncate text-xs text-ink-faint">{o.sub}</span>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function SharedBanner() {
+  const { shared } = useFinance();
+  if (!shared) return null;
+  return (
+    <div className="border-b border-accent/20 bg-accent-soft px-4 py-2 text-center text-[13px] text-ink">
+      You’re viewing <span className="font-semibold">your profile ({shared.memberName})</span> in {shared.ownerName}’s household. Only your own data is visible here, and your changes are saved there.
+    </div>
   );
 }
 
@@ -202,6 +279,7 @@ function ScopeSwitcher() {
 
 function QuickAdd({ compact }: { compact?: boolean }) {
   const openDialog = useOpenDialog();
+  const { shared } = useFinance();
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   useOutsideClose(ref, open, () => setOpen(false));
@@ -210,7 +288,7 @@ function QuickAdd({ compact }: { compact?: boolean }) {
     { label: 'Loan or credit card', onClick: () => openDialog({ type: 'liability' }) },
     { label: 'Expense', onClick: () => openDialog({ type: 'expense' }) },
     { label: 'Insurance policy', onClick: () => openDialog({ type: 'policy' }) },
-    { label: 'Family member', onClick: () => openDialog({ type: 'member' }) },
+    ...(shared ? [] : [{ label: 'Family member', onClick: () => openDialog({ type: 'member' }) }]),
   ];
 
   return (

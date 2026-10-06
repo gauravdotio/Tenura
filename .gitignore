@@ -28,3 +28,7 @@ dist-ssr
 
 # Local Claude Code settings
 .claude/
+
+# Local secrets (never commit)
+.secrets/
+supabase/.temp/

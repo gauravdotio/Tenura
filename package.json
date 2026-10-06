@@ -21,6 +21,7 @@
     "tailwind-merge": "^3.6.0"
   },
   "devDependencies": {
+    "@electric-sql/pglite": "^0.5.8",
     "@types/canvas-confetti": "^1.9.0",
     "@types/node": "^24.13.3",
     "@types/react": "^19.2.18",
@@ -32,7 +33,7 @@
     "tailwindcss": "^3.4.19",
     "typescript": "~6.0.2",
     "vite": "^8.2.2",
-    "vitest": "^3.2.7"
+    "vitest": "^5.0.3"
   },
   "description": "Track every EMI, credit card bill, loan and LIC premium for your whole family in one place."
 }

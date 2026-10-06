@@ -5,6 +5,9 @@ import { FinanceProvider, useFinance } from './context/FinanceContext';
 import { ThemeProvider } from './context/ThemeContext';
 import { ToastProvider } from './context/ToastContext';
 import { DialogContext, type Dialog } from './context/DialogContext';
+import { WorkspaceProvider, useWorkspace } from './context/WorkspaceContext';
+import { PENDING_INVITE_KEY } from './lib/family';
+import { JoinPage } from './pages/JoinPage';
 import { navigate, useRoute } from './lib/router';
 import { AppShell } from './components/layout/AppShell';
 import { Button } from './components/ui';
@@ -35,7 +38,9 @@ export default function App() {
     <ThemeProvider>
       <ToastProvider>
         <AuthProvider>
-          <Router />
+          <WorkspaceProvider>
+            <Router />
+          </WorkspaceProvider>
         </AuthProvider>
       </ToastProvider>
     </ThemeProvider>
@@ -53,6 +58,7 @@ const PUBLIC_PAGES: Record<string, () => ReactNode> = {
 
 function Router() {
   const { user, loading } = useAuth();
+  const { active } = useWorkspace();
   const { path, params } = useRoute();
   const inApp = path === '/app' || path.startsWith('/app/');
 
@@ -61,27 +67,36 @@ function Router() {
     if (loading) return;
     if (inApp && !user) navigate('/login', { replace: true });
     if (user && (path === '/login' || path === '/signup')) navigate('/app', { replace: true });
+    // Someone opened an invite link before signing in: take them back to it
+    let pending: string | null = null;
+    try {
+      pending = sessionStorage.getItem(PENDING_INVITE_KEY);
+    } catch {
+      /* private mode */
+    }
+    if (user && pending && path !== '/join') navigate(`/join?code=${encodeURIComponent(pending)}`, { replace: true });
   }, [loading, user, inApp, path]);
 
   if (loading) return <FullScreenSpinner />;
 
   if (!inApp) {
     if (path === '/login' || path === '/signup') return user ? <FullScreenSpinner /> : <AuthPage key={path} mode={path === '/signup' ? 'signup' : 'login'} />;
+    if (path === '/join') return <JoinPage code={params.get('code') ?? ''} />;
     const page = PUBLIC_PAGES[path];
     return page ? page() : <NotFoundPage />;
   }
   if (!user) return <FullScreenSpinner />;
 
   return (
-    // Keyed by user: signing out or switching accounts discards all in-memory data
-    <FinanceProvider key={user.id} user={user}>
+    // Keyed by user + workspace: signing out or switching households discards all in-memory data
+    <FinanceProvider key={`${user.id}:${active?.memberId ?? 'own'}`} user={user} shared={active}>
       <Workspace path={path} params={params} />
     </FinanceProvider>
   );
 }
 
 function Workspace({ path, params }: { path: string; params: URLSearchParams }) {
-  const { status, retry } = useFinance();
+  const { status, retry, shared } = useFinance();
   const [dialog, setDialog] = useState<Dialog | null>(null);
   const close = useCallback(() => setDialog(null), []);
 
@@ -110,7 +125,8 @@ function Workspace({ path, params }: { path: string; params: URLSearchParams }) 
       );
       break;
     case '/app/household':
-      page = <HouseholdPage />;
+      // Only the account holder manages household members
+      page = shared ? <NotFound /> : <HouseholdPage />;
       break;
     case '/app/settings':
       page = <SettingsPage />;

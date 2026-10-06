@@ -11,6 +11,13 @@ export interface Member {
   monthlyBudget: number;
   /** The account holder. Exactly one per household; can't be removed. */
   isPrimary: boolean;
+  /** Contact details, used for invites and (later) WhatsApp reminders. */
+  email?: string;
+  phone?: string;
+  /** Cloud only, read-only in the app: set when the member has accepted an invite. */
+  linkedUserId?: string;
+  inviteCode?: string;
+  inviteExpiresAt?: string;
 }
 
 export type LiabilityKind = 'credit_card' | 'loan' | 'emi' | 'bnpl';

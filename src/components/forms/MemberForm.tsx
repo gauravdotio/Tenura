@@ -18,6 +18,9 @@ export function MemberForm({ member, onClose }: { member?: Member; onClose: () =
     member?.color ?? (['teal', 'violet', 'amber', 'rose', 'slate', 'blue'] as MemberColor[])[data.members.length % 6],
   );
   const [budget, setBudget] = useState(member ? String(member.monthlyBudget || '') : '');
+  const [email, setEmail] = useState(member?.email ?? '');
+  const [phone, setPhone] = useState(member?.phone ?? '');
+  const [contactError, setContactError] = useState<{ email?: string; phone?: string }>({});
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
 
@@ -28,15 +31,23 @@ export function MemberForm({ member, onClose }: { member?: Member; onClose: () =
     if (data.members.some((m) => m.id !== member?.id && m.name.toLowerCase() === trimmed.toLowerCase())) {
       return setError('Someone in your household already has this name.');
     }
+    const ce: { email?: string; phone?: string } = {};
+    if (email.trim() && !/^\S+@\S+\.\S+$/.test(email.trim())) ce.email = 'Enter a valid email.';
+    if (phone.trim() && !/^\+?[0-9 ]{10,16}$/.test(phone.trim())) ce.phone = 'Enter a 10-digit mobile number.';
+    setContactError(ce);
+    if (ce.email || ce.phone) return;
     setSaving(true);
     try {
       const saved: Member = {
+        ...member, // keeps login/invite details, which are managed separately
         id: member?.id ?? newId(),
         name: trimmed,
         relation: member?.isPrimary ? 'Self' : relation,
         color,
         monthlyBudget: Number(budget) || 0,
         isPrimary: member?.isPrimary ?? false,
+        email: member?.isPrimary ? undefined : email.trim().toLowerCase() || undefined,
+        phone: member?.isPrimary ? undefined : phone.trim() || undefined,
       };
       await saveMember(saved);
       if (!member) setScope(saved.id);
@@ -80,6 +91,16 @@ export function MemberForm({ member, onClose }: { member?: Member; onClose: () =
                 {RELATIONS.map((r) => <option key={r}>{r}</option>)}
               </Select>
             </Field>
+          )}
+          {!member?.isPrimary && (
+            <>
+              <Field label="Email" optional error={contactError.email} hint="To invite them to log in and see their own profile." htmlFor="mf-email">
+                <Input id="mf-email" type="email" autoComplete="off" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="didi@example.com" />
+              </Field>
+              <Field label="Mobile number" optional error={contactError.phone} hint="For sending the invite on WhatsApp." htmlFor="mf-phone">
+                <Input id="mf-phone" type="tel" inputMode="tel" autoComplete="off" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="98765 43210" />
+              </Field>
+            </>
           )}
           <Field label="Monthly spending budget" optional hint="Used for the budget bar on Expenses." htmlFor="mf-budget">
             <Input id="mf-budget" type="number" inputMode="decimal" min={0} prefix="₹" value={budget} onChange={(e) => setBudget(e.target.value)} placeholder="40,000" />

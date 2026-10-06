@@ -11,6 +11,7 @@ import { navigate } from '../lib/router';
 import { StatBand, StatCard } from '../components/Visuals';
 import { MEMBER_HEX } from '../lib/visuals';
 import { initials } from '../lib/format';
+import { MemberLogin } from '../components/MemberLogin';
 
 export function HouseholdPage() {
   const { data, summary, primary, setScope, removeMember } = useFinance();
@@ -110,6 +111,8 @@ export function HouseholdPage() {
                 </div>
                 {m.monthlyBudget > 0 && <Progress className="mt-1.5" value={pct} tone={pct > 100 ? 'negative' : pct > 85 ? 'warning' : 'accent'} label={`${m.name} budget used`} />}
               </div>
+
+              <MemberLogin member={m} />
 
               <Button
                 size="sm"

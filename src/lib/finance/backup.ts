@@ -79,6 +79,8 @@ export function parseBackup(text: string): ParseResult {
     color: COLORS.includes(m.color as MemberColor) ? (m.color as MemberColor) : COLORS[i % COLORS.length],
     monthlyBudget: num(m.monthlyBudget),
     isPrimary: isV3 ? m.isPrimary === true : i === 0,
+    email: optStr(m.email),
+    phone: optStr(m.phone),
   }));
   if (members.length === 0) return { ok: false, error: 'The backup has no household members.' };
   if (!members.some((m) => m.isPrimary)) members[0].isPrimary = true;
