@@ -63,7 +63,6 @@ export function PrivacyPage() {
         <ul>
           <li><strong>Supabase and Vercel</strong> — hosting and the database, as above.</li>
           <li><strong>Resend</strong> — sends the reminder emails you switch on (your email address and the payments being reminded about).</li>
-          <li><strong>Google (Gemini)</strong> — only when you press “Explain my plan” in the Money plan. We send a summary of amounts, interest rates and types — never names of people, card numbers or account numbers — and Gemini writes the explanation. We use Google’s free tier, under which Google may use this content to improve its products; don’t type personal details into the question box.</li>
         </ul>
         <p>We never sell or rent personal data. We would only disclose information if required by law.</p>
 

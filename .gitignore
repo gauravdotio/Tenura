@@ -32,3 +32,6 @@ dist-ssr
 # Local secrets (never commit)
 .secrets/
 supabase/.temp/
+promo/node_modules/
+promo/out/
+promo/public/shots/
